@@ -21,6 +21,20 @@
     "foreign_dividend_pre_refund_abolished": true,
     "pre_refund_change_note": "2025년부터 해외 배당 원천세 선환급 폐지 논의/시행 -> 세후 금액 기준 재투자로 변경되어 과세이연 복리효과 감소. 최종 시행 방식은 재확인 필요."
   },
+  "national_income_tax_brackets": {
+    "verification_status": "미검증 초안 — 해당 연도 종합소득세 누진세율표는 세법 개정 여부를 국세청 최신 고시로 재확인 필요 (skills.md 2절과 동일한 성격의 불확실성)",
+    "note": "각 구간의 rate는 한계세율(marginal rate)이다. 본 시뮬레이터는 금융소득종합과세 기준 초과분에 이 한계세율만 적용하며, 누진공제를 반영한 전체 종합소득세액은 계산하지 않는다.",
+    "brackets": [
+      { "up_to_krw": 14000000, "rate": 0.06 },
+      { "up_to_krw": 50000000, "rate": 0.15 },
+      { "up_to_krw": 88000000, "rate": 0.24 },
+      { "up_to_krw": 150000000, "rate": 0.35 },
+      { "up_to_krw": 300000000, "rate": 0.38 },
+      { "up_to_krw": 500000000, "rate": 0.40 },
+      { "up_to_krw": 1000000000, "rate": 0.42 },
+      { "up_to_krw": null, "rate": 0.45 }
+    ]
+  },
   "simulation_assumptions": [
     "보유기간 종료 시점에 전량 매도(단일 매도)한다고 가정",
     "매년 발생하는 배당/분배금은 즉시 재투자한다고 가정",

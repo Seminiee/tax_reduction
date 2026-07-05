@@ -28,7 +28,7 @@
     {
       "id": 2,
       "name": "simulate-api",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "app/api/simulate/route.ts: 입력 검증 + 두 계좌 계산 결과 병합",
         "연도별 세후 자산 배열 반환 (그래프용 데이터 포맷)"

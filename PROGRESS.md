@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: Stage 2 (시뮬레이션 API) — 사용자 확인 후 시작
-- **마지막 업데이트**: 2026-07-05 (Stage 1 완료)
+- **다음 작업**: Stage 3 (프론트엔드 UI) — 사용자 확인 후 시작
+- **마지막 업데이트**: 2026-07-05 (Stage 2 완료)
 
 ## 스테이지 체크리스트
 
@@ -12,7 +12,7 @@
 |---|---|---|
 | 0 | 프로젝트 스캐폴딩 (Next.js 세팅, 폴더 구조, 배포 파이프라인 확인) | done |
 | 1 | 세금 계산 엔진 (config/tax-rules.json + lib/tax 순수함수 + 단위테스트) | done |
-| 2 | 시뮬레이션 API (/api/simulate) — 연도별 세후 자산 곡선 반환 | todo |
+| 2 | 시뮬레이션 API (/api/simulate) — 연도별 세후 자산 곡선 반환 | done |
 | 3 | 프론트엔드 입력 폼 + 결과 그래프 UI | todo |
 | 4 | AI 자연어 파싱 + 결과 해설 (/api/explain, Anthropic API 연동) | todo |
 | 5 | AI 세제 Q&A 챗봇 (선택 기능, /api/chat) | todo |
@@ -40,5 +40,13 @@
 ### 2026-07-05 (경로 정리)
 - 루트에 있던 `ui-mockup.html`을 문서(CLAUDE.md/UI_SPEC.md/feature_list.json)가 참조하는 `design/ui-mockup.html`로 이동.
 - feature_list.json Stage 0 status가 Stage 1 커밋(211aa22) 때 실수로 "done"→"todo"로 되돌아가 있던 것을 발견해 "done"으로 재수정 (git 커밋 이력 기준으로 확인: 90a0b60에서는 done이었으나 211aa22 diff에 의도치 않게 포함됨).
+
+### 2026-07-05 (Stage 2)
+- config/tax-rules.json에 `national_income_tax_brackets`(종합소득세 누진세율표, 한계세율만) 추가. skills.md 2절과 동일하게 `verification_status: 미검증 초안` 표시 포함 — 표준적으로 알려진 8단계 구간·세율(6%~45%)을 사용했으나 2026년 시행 기준 최종 확인은 안 됨.
+- lib/tax/income-tax-brackets.ts: resolveMarginalIncomeTaxRate 순수함수 신규 추가 + tax-engine.test.ts에 경계값 테스트 3건 추가 (CLAUDE.md 규칙 2 — 모든 세금 계산 함수는 단위테스트 동반)
+- app/api/simulate/route.ts 구현: 입력 검증(400 에러 응답 포함) → annualFinancialIncomeKrw가 comprehensive_taxation_threshold_krw 초과 시에만 브래킷에서 한계세율 조회 → simulateGeneralAccount/simulateIsaAccount/findIsaThresholdPrincipal 결과를 하나의 JSON으로 병합해 반환
+- 로컬 dev 서버(curl)로 4개 시나리오(성장주/정상, 배당주+서민형+3년미만 중도해지, 고배당+종합과세 15%/42% 구간, 입력검증 실패 2건) 모두 정상 응답 확인
+- `npm run test`(14개) / `npm run build` 모두 통과
+- 다음 세션에서 할 일: 사용자 확인 후 Stage 3(frontend-ui) 시작. UI_SPEC.md + design/ui-mockup.html 브라우저로 열어 인터랙션 재확인 후 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

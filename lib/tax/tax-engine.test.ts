@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { simulateGeneralAccount } from "./general-account";
 import { simulateIsaAccount } from "./isa-account";
 import { findIsaThresholdPrincipal } from "./threshold";
+import { resolveMarginalIncomeTaxRate } from "./income-tax-brackets";
 
 describe("시세차익만 있고 배당 없는 성장주 케이스 (직투 vs ISA)", () => {
   const input = {
@@ -183,5 +184,22 @@ describe("findIsaThresholdPrincipal 역산 정확성 + growthFactor 경계 케�
     });
 
     expect(result.kind).toBe("no-threshold-non-positive-growth");
+  });
+});
+
+describe("resolveMarginalIncomeTaxRate (Stage 2: 종합소득세 브래킷 조회)", () => {
+  it("각 구간 상한 경계값에서 해당 구간의 세율을 반환한다", () => {
+    expect(resolveMarginalIncomeTaxRate(14_000_000)).toBeCloseTo(0.06, 6);
+    expect(resolveMarginalIncomeTaxRate(14_000_001)).toBeCloseTo(0.15, 6);
+    expect(resolveMarginalIncomeTaxRate(50_000_000)).toBeCloseTo(0.15, 6);
+    expect(resolveMarginalIncomeTaxRate(50_000_001)).toBeCloseTo(0.24, 6);
+  });
+
+  it("최고 구간(상한 없음)을 초과하는 고소득에도 최고 세율을 반환한다", () => {
+    expect(resolveMarginalIncomeTaxRate(10_000_000_000)).toBeCloseTo(0.45, 6);
+  });
+
+  it("과세표준이 0이면 최저 구간 세율을 반환한다", () => {
+    expect(resolveMarginalIncomeTaxRate(0)).toBeCloseTo(0.06, 6);
   });
 });
