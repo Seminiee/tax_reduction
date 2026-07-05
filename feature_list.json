@@ -1,0 +1,83 @@
+{
+  "project": "isa-vs-general-etf-tax-simulator",
+  "stages": [
+    {
+      "id": 0,
+      "name": "scaffolding",
+      "status": "in_progress",
+      "tasks": [
+        "Next.js(TypeScript, App Router) 프로젝트 init",
+        "Tailwind CSS 설정",
+        "폴더 구조 생성: app/, lib/tax/, config/, components/",
+        "Vercel 배포 연결 및 URL 확보 (빈 페이지라도 먼저 배포)"
+      ],
+      "done_criteria": "로컬 실행 + Vercel URL에서 빈 페이지가 정상 렌더"
+    },
+    {
+      "id": 1,
+      "name": "tax-engine",
+      "status": "todo",
+      "tasks": [
+        "config/tax-rules.json 최종 값 재확인 및 반영",
+        "lib/tax/general-account.ts: 직투 계좌 세후수익 계산 순수함수",
+        "lib/tax/isa-account.ts: ISA 계좌 세후수익 계산 순수함수",
+        "lib/tax/tax-engine.test.ts: skills.md의 5개 시나리오 단위 테스트"
+      ],
+      "done_criteria": "모든 단위 테스트 통과"
+    },
+    {
+      "id": 2,
+      "name": "simulate-api",
+      "status": "todo",
+      "tasks": [
+        "app/api/simulate/route.ts: 입력 검증 + 두 계좌 계산 결과 병합",
+        "연도별 세후 자산 배열 반환 (그래프용 데이터 포맷)"
+      ],
+      "done_criteria": "curl/Postman으로 샘플 입력 시 정상 JSON 응답"
+    },
+    {
+      "id": 3,
+      "name": "frontend-ui",
+      "status": "todo",
+      "tasks": [
+        "입력 폼 컴포넌트 (금액/수익률/배당률/보유기간/소득구간/ISA유형)",
+        "결과 그래프 컴포넌트 (연도별 세후 자산 비교 라인차트)",
+        "가정/유의사항 문구 상시 노출 컴포넌트"
+      ],
+      "done_criteria": "폼 입력 → 그래프 렌더까지 엔드투엔드 동작"
+    },
+    {
+      "id": 4,
+      "name": "ai-explain",
+      "status": "todo",
+      "tasks": [
+        "app/api/explain/route.ts: Anthropic API 연동",
+        "자연어 입력 파싱 프롬프트 구현 (skills.md 5절 참고)",
+        "결과 해설 프롬프트 구현 및 UI 연결"
+      ],
+      "done_criteria": "자연어 입력 시 폼 자동 채움 + 결과 해설 텍스트 정상 출력"
+    },
+    {
+      "id": 5,
+      "name": "ai-chatbot",
+      "status": "todo",
+      "optional": true,
+      "tasks": [
+        "app/api/chat/route.ts",
+        "'확인 필요 항목' 질문 시 불확실성 안내하는 시스템 프롬프트 적용"
+      ],
+      "done_criteria": "기본 세제 질문에 합리적 응답, 불확실 항목엔 확인 필요 안내"
+    },
+    {
+      "id": 6,
+      "name": "deploy-and-submit",
+      "status": "todo",
+      "tasks": [
+        "최종 Vercel 배포 및 URL 확정",
+        "지원서용 스크린샷/핵심 프롬프트 캡처",
+        "README 최종 정리"
+      ],
+      "done_criteria": "심사용 URL 접속 가능 + 지원서 초안 완성"
+    }
+  ]
+}

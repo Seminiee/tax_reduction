@@ -1,0 +1,29 @@
+{
+  "as_of": "2026-07-05",
+  "verification_status": "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요 (skills.md 2절 참고)",
+  "general_account": {
+    "capital_gains_tax_rate": 0.22,
+    "annual_basic_deduction_krw": 2500000,
+    "domestic_dividend_withholding_rate": 0.154,
+    "foreign_withholding_rate_us": 0.15
+  },
+  "isa_account": {
+    "types": {
+      "general": { "tax_free_limit_krw": 2000000 },
+      "low_income": { "tax_free_limit_krw": 4000000 },
+      "farmer": { "tax_free_limit_krw": 4000000 }
+    },
+    "separate_tax_rate_over_limit": 0.099,
+    "min_holding_years": 3,
+    "annual_contribution_limit_krw": 20000000,
+    "total_contribution_limit_krw": 100000000,
+    "foreign_dividend_pre_refund_abolished": true,
+    "pre_refund_change_note": "2025년부터 해외 배당 원천세 선환급 폐지 논의/시행 -> 세후 금액 기준 재투자로 변경되어 과세이연 복리효과 감소. 최종 시행 방식은 재확인 필요."
+  },
+  "simulation_assumptions": [
+    "보유기간 종료 시점에 전량 매도(단일 매도)한다고 가정",
+    "매년 발생하는 배당/분배금은 즉시 재투자한다고 가정",
+    "손익통산은 동일 계좌·동일 연도 내에서만 적용",
+    "환율 변동은 고려하지 않음 (원화 기준 수익률만 비교)"
+  ]
+}
