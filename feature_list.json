@@ -65,7 +65,7 @@
     {
       "id": 5,
       "name": "ai-chatbot",
-      "status": "todo",
+      "status": "done",
       "optional": true,
       "tasks": [
         "app/api/chat/route.ts",

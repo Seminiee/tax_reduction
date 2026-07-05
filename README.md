@@ -37,11 +37,11 @@ npm run test        # 단위 테스트 (lib/tax, lib/ai) — 실제 Anthropic AP
 
 ### AI 스모크 테스트 (수동 실행, 실제 Anthropic API 호출)
 
-`lib/ai/*.smoke.test.ts`는 실제 API 키로 `claude-haiku-4-5-20251001`을 호출해 자연어 파싱/결과 해설이 실제로 동작하는지 확인하는 테스트다. 비용과 네트워크 호출이 발생하므로 `npm run test`에서는 항상 스킵되고, 아래처럼 명시적으로 실행할 때만 동작한다.
+`lib/ai/*.smoke.test.ts`는 실제 API 키로 `claude-haiku-4-5-20251001`을 호출해 자연어 파싱/결과 해설/세제 Q&A 챗봇이 실제로 동작하는지 확인하는 테스트다. 비용과 네트워크 호출이 발생하므로 `npm run test`에서는 항상 스킵되고, 아래처럼 명시적으로 실행할 때만 동작한다.
 
 ```bash
 RUN_AI_SMOKE_TEST=1 ANTHROPIC_API_KEY=$(grep ANTHROPIC_API_KEY .env.local | cut -d '=' -f2-) \
-  npm run test -- lib/ai/parse-investment-input.smoke.test.ts lib/ai/explain-simulation-result.smoke.test.ts
+  npm run test -- lib/ai/parse-investment-input.smoke.test.ts lib/ai/explain-simulation-result.smoke.test.ts lib/ai/chat-with-tax-assistant.smoke.test.ts
 ```
 
 ## ⚠️ 세금 정보 관련 유의사항 (지원서/시연에도 반드시 명시)

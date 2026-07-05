@@ -397,3 +397,91 @@
   font-size: 13px;
   line-height: 1.6;
 }
+
+/* Stage 5 (AI 세제 Q&A 챗봇) — 기존 클래스는 그대로 두고 추가만 함 */
+
+.chatToggleButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.chatBody {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.chatDisclaimer {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--label-bg);
+  color: var(--text-sub);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.chatMessages {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.chatEmptyHint {
+  color: var(--text-sub);
+  font-size: 12px;
+  padding: 8px 0;
+}
+
+.chatBubbleUser {
+  align-self: flex-end;
+  max-width: 85%;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 12px 12px 2px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chatBubbleAssistant {
+  align-self: flex-start;
+  max-width: 85%;
+  background: var(--label-bg);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 12px 12px 12px 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chatInputRow {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.chatInput {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+}

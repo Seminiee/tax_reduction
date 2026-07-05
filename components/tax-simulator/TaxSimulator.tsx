@@ -11,6 +11,7 @@ import { AmountSliderCard } from "./AmountSliderCard";
 import { ResultComparisonCard } from "./ResultComparisonCard";
 import { NaturalLanguageInputCard } from "./NaturalLanguageInputCard";
 import { AiExplanationPanel } from "./AiExplanationPanel";
+import { ChatPanel } from "./ChatPanel";
 import { Disclaimer } from "./Disclaimer";
 import { krwToManwon, manwonToKrw } from "./format";
 import styles from "./TaxSimulator.module.css";
@@ -120,6 +121,34 @@ export function TaxSimulator() {
     return data.explanation as string;
   }, [principalKrw, annualReturnRate, holdingYears, isaType, generalResult, isaResult]);
 
+  const currentSimulation = useMemo(
+    () => ({
+      request: {
+        principalKrw,
+        annualReturnRate,
+        annualDividendYieldRate: ANNUAL_DIVIDEND_YIELD_RATE,
+        holdingYears,
+        isaType,
+        annualFinancialIncomeKrw: 0,
+      },
+      response: {
+        generalAccount: {
+          finalAfterTaxValue: generalResult.finalAfterTaxValue,
+          totalTax: generalResult.totalTax,
+        },
+        isaAccount: {
+          finalAfterTaxValue: isaResult.finalAfterTaxValue,
+          tax: isaResult.tax,
+          isEarlyWithdrawal: isaResult.isEarlyWithdrawal,
+          taxableExcess: isaResult.taxableExcess,
+          taxFreeLimitKrw: isaResult.taxFreeLimitKrw,
+        },
+        verificationStatus: taxRules.verification_status,
+      },
+    }),
+    [principalKrw, annualReturnRate, holdingYears, isaType, generalResult, isaResult]
+  );
+
   return (
     <div className={styles.page}>
       <div className={styles.wrap}>
@@ -151,6 +180,7 @@ export function TaxSimulator() {
           minHoldingYears={minHoldingYears}
         />
         <AiExplanationPanel onExplain={handleExplain} />
+        <ChatPanel currentSimulation={currentSimulation} />
         <Disclaimer />
       </div>
     </div>
