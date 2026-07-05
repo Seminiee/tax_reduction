@@ -54,7 +54,7 @@
     {
       "id": 4,
       "name": "ai-explain",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "app/api/explain/route.ts: Anthropic API 연동",
         "자연어 입력 파싱 프롬프트 구현 (skills.md 5절 참고)",

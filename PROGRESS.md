@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: Stage 4 (AI 자연어 파싱 + 결과 해설) — 사용자 확인 후 시작
-- **마지막 업데이트**: 2026-07-05 (Stage 3 완료)
+- **다음 작업**: Stage 5 (AI 세제 Q&A 챗봇, 선택 기능) — 사용자 확인 후 시작
+- **마지막 업데이트**: 2026-07-05 (Stage 4 완료)
 
 ## 스테이지 체크리스트
 
@@ -14,7 +14,7 @@
 | 1 | 세금 계산 엔진 (config/tax-rules.json + lib/tax 순수함수 + 단위테스트) | done |
 | 2 | 시뮬레이션 API (/api/simulate) — 연도별 세후 자산 곡선 반환 | done |
 | 3 | 프론트엔드 입력 폼 + 결과 그래프 UI | done |
-| 4 | AI 자연어 파싱 + 결과 해설 (/api/explain, Anthropic API 연동) | todo |
+| 4 | AI 자연어 파싱 + 결과 해설 (/api/explain, Anthropic API 연동) | done |
 | 5 | AI 세제 Q&A 챗봇 (선택 기능, /api/chat) | todo |
 | 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | todo |
 
@@ -64,5 +64,16 @@
 - 스크린샷 확인 중 슬라이더 마커의 부동소수점 좌표값을 그대로 style에 넣어 SSR/CSR 하이드레이션 불일치 경고가 발생하는 것을 발견해 소수점 4자리로 반올림하여 수정
 - `npm run build`, `npm run lint`, `npm run test`(14개) 모두 통과
 - 다음 세션에서 할 일: 사용자 확인 후 Stage 4(ai-explain, /api/explain Anthropic 연동) 시작.
+
+### 2026-07-05 (Stage 4)
+- `@anthropic-ai/sdk`, `zod` 설치. 모델은 사용자 지정대로 `claude-haiku-4-5-20251001` 고정 사용, 필요 시 sonnet-5 전환 여부는 먼저 상의하기로 함.
+- lib/ai/parse-investment-input.ts: `client.messages.parse()` + `zodOutputFormat`으로 자유 서술 → 구조화 JSON(assumedFields 포함) 파싱. lib/ai/explain-simulation-result.ts: `client.messages.create()`로 3~5문장 조건부 표현 해설 생성.
+- app/api/parse/route.ts, app/api/explain/route.ts 신규 구현 (기존 app/api/simulate/route.ts는 미변경). 실패 시 502 + 폴백 메시지, 앱은 죽지 않음.
+- PROMPTS.md에 두 시스템 프롬프트 원문과 curl로 확인한 실제 응답 예시(파싱 2건, 해설 1건)를 기록.
+- 단위 테스트(lib/ai/*.test.ts, 6개)는 `@anthropic-ai/sdk`를 vi.mock으로 목 처리해 실제 API를 호출하지 않음. 스모크 테스트(lib/ai/*.smoke.test.ts, 2개)는 `RUN_AI_SMOKE_TEST=1` 환경변수 게이트로 기본 `npm run test`에서는 항상 스킵되고, README에 수동 실행 커맨드를 기록 — 실제로 그 커맨드를 실행해 통과 확인함.
+- UI 연결: NaturalLanguageInputCard(자연어 입력 + "AI로 조건 채우기"), AiExplanationPanel("AI 설명 보기") 컴포넌트를 TaxSimulator.tsx에 연결. 슬라이더 자체는 여전히 API를 호출하지 않고 lib/tax 직접 호출 유지, AI 호출은 버튼 클릭시에만 발생.
+- Playwright로 실제 브라우저에서 자연어 입력("애플에 2000만원, 6년, 연 10% 예상") → 폼 자동 채움, "AI 설명 보기" → 조건부 표현 포함 해설 출력을 실제 API로 확인, 콘솔 에러 없음.
+- `npm run build`/`npm run lint`/`npm run test`(20개, 스모크 2개 스킵) 모두 통과.
+- 다음 세션에서 할 일: 사용자 확인 후 Stage 5(ai-chatbot, 선택 기능) 시작 여부 결정.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import taxRules from "@/config/tax-rules.json";
 import { simulateGeneralAccount } from "@/lib/tax/general-account";
 import { simulateIsaAccount } from "@/lib/tax/isa-account";
@@ -9,8 +9,10 @@ import { Header } from "./Header";
 import { ConditionInputCard, type TwoWayIsaType } from "./ConditionInputCard";
 import { AmountSliderCard } from "./AmountSliderCard";
 import { ResultComparisonCard } from "./ResultComparisonCard";
+import { NaturalLanguageInputCard } from "./NaturalLanguageInputCard";
+import { AiExplanationPanel } from "./AiExplanationPanel";
 import { Disclaimer } from "./Disclaimer";
-import { manwonToKrw } from "./format";
+import { krwToManwon, manwonToKrw } from "./format";
 import styles from "./TaxSimulator.module.css";
 
 // design/ui-mockup.html과 동일한 슬라이더 범위(100만원 ~ 10,000만원, 50만원 단위).
@@ -64,10 +66,65 @@ export function TaxSimulator() {
     [annualReturnRate, holdingYears, taxFreeLimitKrw]
   );
 
+  const handleApplyNaturalLanguage = useCallback(async (text: string) => {
+    const res = await fetch("/api/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message ?? "지금은 AI로 조건을 채울 수 없어요. 직접 입력해 주세요.");
+    }
+
+    setAnnualReturnRatePercent(Math.round(data.annualReturnRate * 1000) / 10);
+    setHoldingYears(data.holdingYears);
+    setPrincipalManwon(
+      Math.min(
+        PRINCIPAL_MAX_MANWON,
+        Math.max(PRINCIPAL_MIN_MANWON, Math.round(krwToManwon(data.principalKrw)))
+      )
+    );
+    // Stage 3 UI는 2단 토글(일반형/서민형)만 지원하므로 farmer는 general로 대체한다.
+    setIsaType(data.isaType === "low_income" ? "low_income" : "general");
+  }, []);
+
+  const handleExplain = useCallback(async () => {
+    const res = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { principalKrw, annualReturnRate, holdingYears, isaType },
+        generalAccount: {
+          finalAfterTaxValue: generalResult.finalAfterTaxValue,
+          totalTax: generalResult.totalTax,
+          capitalGainsTax: generalResult.capitalGainsTax,
+          totalDividendTax: generalResult.totalDividendTax,
+        },
+        isaAccount: {
+          finalAfterTaxValue: isaResult.finalAfterTaxValue,
+          tax: isaResult.tax,
+          isEarlyWithdrawal: isaResult.isEarlyWithdrawal,
+          taxableExcess: isaResult.taxableExcess,
+          taxFreeLimitKrw: isaResult.taxFreeLimitKrw,
+        },
+        verificationStatus: taxRules.verification_status,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(
+        data.message ?? "지금은 AI 설명을 불러올 수 없어요, 계산 결과는 위에서 확인하세요."
+      );
+    }
+    return data.explanation as string;
+  }, [principalKrw, annualReturnRate, holdingYears, isaType, generalResult, isaResult]);
+
   return (
     <div className={styles.page}>
       <div className={styles.wrap}>
         <Header />
+        <NaturalLanguageInputCard onApply={handleApplyNaturalLanguage} />
         <ConditionInputCard
           isaType={isaType}
           onIsaTypeChange={setIsaType}
@@ -93,6 +150,7 @@ export function TaxSimulator() {
           isaResult={isaResult}
           minHoldingYears={minHoldingYears}
         />
+        <AiExplanationPanel onExplain={handleExplain} />
         <Disclaimer />
       </div>
     </div>

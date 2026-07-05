@@ -331,3 +331,69 @@
   margin-top: 20px;
   line-height: 1.6;
 }
+
+/* Stage 4 (AI 자연어 파싱 / 결과 해설) — 기존 클래스는 그대로 두고 추가만 함 */
+
+.sectionLabel {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+}
+
+.primaryButton {
+  margin-top: 10px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  background: #fff;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.explanationBox {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: #33409c;
+  font-size: 13px;
+  line-height: 1.6;
+}

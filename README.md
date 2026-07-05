@@ -27,5 +27,22 @@ npm install
 npm run dev
 ```
 
+AI 기능(`/api/parse`, `/api/explain`)을 쓰려면 프로젝트 루트에 `.env.local`을 만들고 `ANTHROPIC_API_KEY=sk-ant-...`를 넣어야 한다. `.env.local`은 `.gitignore`에 포함되어 있어 커밋되지 않는다.
+
+## 테스트
+
+```bash
+npm run test        # 단위 테스트 (lib/tax, lib/ai) — 실제 Anthropic API 호출 없음, 전부 mock 처리
+```
+
+### AI 스모크 테스트 (수동 실행, 실제 Anthropic API 호출)
+
+`lib/ai/*.smoke.test.ts`는 실제 API 키로 `claude-haiku-4-5-20251001`을 호출해 자연어 파싱/결과 해설이 실제로 동작하는지 확인하는 테스트다. 비용과 네트워크 호출이 발생하므로 `npm run test`에서는 항상 스킵되고, 아래처럼 명시적으로 실행할 때만 동작한다.
+
+```bash
+RUN_AI_SMOKE_TEST=1 ANTHROPIC_API_KEY=$(grep ANTHROPIC_API_KEY .env.local | cut -d '=' -f2-) \
+  npm run test -- lib/ai/parse-investment-input.smoke.test.ts lib/ai/explain-simulation-result.smoke.test.ts
+```
+
 ## ⚠️ 세금 정보 관련 유의사항 (지원서/시연에도 반드시 명시)
 본 서비스의 세율·비과세 한도·정책 변경 사항은 `config/tax-rules.json`의 `as_of` 시점 공개 자료를 기반으로 하며, 일부 수치는 출처마다 상충되어 재확인이 필요합니다(자세한 내용은 `skills.md` 참고). 세법 개정에 따라 달라질 수 있으므로 실제 투자 결정 전 세무 전문가 상담 또는 국세청/금융투자협회 최신 공지 확인을 권장합니다. 모든 세율 파라미터는 하드코딩하지 않고 config에서만 관리합니다.
