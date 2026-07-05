@@ -94,7 +94,13 @@ export function AmountSliderCard(props: AmountSliderCardProps) {
           {noteState.kind === "normal" && (
             <>
               <div className={styles.marker} style={{ left: `${noteState.pct}%` }} />
-              <div className={styles.markerLabel} style={{ left: `${noteState.pct}%` }}>
+              {/* 라벨은 좌우 끝(0%/100%에 가까울 때)에서 translateX(-50%)로 인해 뷰포트 밖으로
+                  잘릴 수 있어(특히 375px 모바일), 라벨 위치만 안전 범위로 clamp한다.
+                  실제 마커 선(위)과 트랙 채움 분기점은 clamp 없이 정확한 위치를 유지한다. */}
+              <div
+                className={styles.markerLabel}
+                style={{ left: `${Math.min(92, Math.max(8, noteState.pct))}%` }}
+              >
                 {formatManwon(manwonToKrw(noteState.thresholdManwon))}만원부터 초과세
               </div>
             </>

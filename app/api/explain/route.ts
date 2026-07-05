@@ -3,6 +3,7 @@ import {
   explainSimulationResult,
   type ExplainSimulationInput,
 } from "@/lib/ai/explain-simulation-result";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const FALLBACK_MESSAGE = "지금은 AI 설명을 불러올 수 없어요, 계산 결과는 위에서 확인하세요.";
 
@@ -21,6 +22,18 @@ function isValidBody(body: unknown): body is ExplainSimulationInput {
 }
 
 export async function POST(request: Request) {
+  // 공개 데모 링크에서 비용 폭주를 막기 위한 최소한의 방어 (lib/rate-limit.ts 주석 참고).
+  const rateLimit = checkRateLimit(getClientIp(request));
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: "RATE_LIMITED",
+        message: `요청이 너무 많아요. ${rateLimit.retryAfterSeconds}초 후 다시 시도해 주세요.`,
+      },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

@@ -16,7 +16,7 @@
 | 3 | 프론트엔드 입력 폼 + 결과 그래프 UI | done |
 | 4 | AI 자연어 파싱 + 결과 해설 (/api/explain, Anthropic API 연동) | done |
 | 5 | AI 세제 Q&A 챗봇 (선택 기능, /api/chat) | done |
-| 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | todo |
+| 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | in_progress |
 
 ## 세션 로그
 ### 2026-07-05
