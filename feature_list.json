@@ -4,7 +4,7 @@
     {
       "id": 0,
       "name": "scaffolding",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         "Next.js(TypeScript, App Router) 프로젝트 init",
         "Tailwind CSS 설정",
