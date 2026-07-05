@@ -4,7 +4,7 @@
     {
       "id": 0,
       "name": "scaffolding",
-      "status": "done",
+      "status": "todo",
       "tasks": [
         "Next.js(TypeScript, App Router) 프로젝트 init",
         "Tailwind CSS 설정",
@@ -16,7 +16,7 @@
     {
       "id": 1,
       "name": "tax-engine",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "config/tax-rules.json 최종 값 재확인 및 반영",
         "lib/tax/general-account.ts: 직투 계좌 세후수익 계산 순수함수",
@@ -39,12 +39,17 @@
       "id": 3,
       "name": "frontend-ui",
       "status": "todo",
+      "spec_ref": "UI_SPEC.md, design/ui-mockup.html (반드시 참고, 임의 디자인 변경 금지)",
       "tasks": [
-        "입력 폼 컴포넌트 (금액/수익률/배당률/보유기간/소득구간/ISA유형)",
-        "결과 그래프 컴포넌트 (연도별 세후 자산 비교 라인차트)",
-        "가정/유의사항 문구 상시 노출 컴포넌트"
+        "UI_SPEC.md 2절 컴포넌트 구성대로 헤더/조건입력카드/슬라이더카드/결과비교카드/disclaimer 구현",
+        "ISA 유형 2단 토글 (일반형 200만원 / 서민형 400만원) — 비과세한도 실시간 반영",
+        "투자금액 슬라이더 + 트랙 색상 분리(safe/danger) + 마커/라벨 구현",
+        "lib/tax에 findIsaThresholdPrincipal 순수함수 추가 (UI_SPEC.md 3절 공식) — 컴포넌트에서 직접 계산하지 않음",
+        "UI_SPEC.md 4절의 안내문구 4가지 상태 분기 구현 (정상/전구간초과/전구간안전/3년미만)",
+        "결과 비교 카드: 더 유리한 쪽 강조 + 조건부 표현 배지 (\"이 조건에서 더 유리\", 절대 \"무조건 유리\" 금지)",
+        "가정/유의사항 disclaimer 상시 노출 (스크롤로 사라지지 않게)"
       ],
-      "done_criteria": "폼 입력 → 그래프 렌더까지 엔드투엔드 동작"
+      "done_criteria": "design/ui-mockup.html과 동일한 인터랙션이 실제 lib/tax 계산 결과로 동작"
     },
     {
       "id": 4,

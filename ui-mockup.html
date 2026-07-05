@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>해외ETF 세후수익 시뮬레이터 (UI 시안)</title>
+<style>
+  :root{
+    --accent:#2f5fe0;
+    --accent-soft:#eef2ff;
+    --border:#e6e8ec;
+    --label-bg:#f4f5f7;
+    --text:#1a1d24;
+    --text-sub:#6b7280;
+    --danger:#e05a2f;
+    --safe:#1fa971;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:40px 16px 80px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
+    background:#fafbfc; color:var(--text);
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+  h1{text-align:center;font-size:28px;font-weight:800;margin:0 0 12px;}
+  .sub1{text-align:center;color:var(--accent);font-weight:700;font-size:14px;margin-bottom:6px;}
+  .sub2{text-align:center;color:var(--text-sub);font-size:13px;margin-bottom:6px;}
+  .updated{text-align:center;color:#aab1bb;font-size:12px;margin-bottom:28px;}
+
+  .card{
+    border:1px solid var(--border); border-radius:16px; margin-bottom:16px;
+    background:#fff; overflow:hidden;
+  }
+  .row{display:flex; align-items:stretch; min-height:64px;}
+  .row + .row{border-top:1px solid var(--border);}
+  .label{
+    width:130px; flex-shrink:0; background:var(--label-bg);
+    display:flex; align-items:center; padding:0 16px; font-weight:700; font-size:14px;
+  }
+  .content{flex:1; display:flex; align-items:center; padding:0 16px; gap:8px; flex-wrap:wrap;}
+
+  .toggle-group{display:flex; flex:1;}
+  .toggle{
+    flex:1; text-align:center; padding:20px 8px; cursor:pointer; font-weight:700; font-size:15px;
+    color:var(--text-sub); border-right:1px solid var(--border); user-select:none;
+  }
+  .toggle:last-child{border-right:none;}
+  .toggle.active{color:var(--accent); background:var(--accent-soft);}
+
+  .num-input{
+    border:none; outline:none; font-size:18px; font-weight:700; width:140px; text-align:right;
+  }
+  .unit{color:var(--text-sub); font-size:14px; font-weight:600;}
+
+  .slider-card{padding:20px 20px 24px;}
+  .slider-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;}
+  .slider-top .amt{font-size:24px; font-weight:800; color:var(--accent);}
+  .slider-top .amt span{font-size:14px; color:var(--text-sub); font-weight:600; margin-left:4px;}
+
+  .track-wrap{position:relative; padding:10px 0 4px;}
+  .track-bg{
+    position:relative; height:8px; border-radius:6px; background:#e9ebf0; overflow:visible;
+  }
+  .track-fill{
+    position:absolute; top:0; left:0; height:8px; border-radius:6px; background:var(--safe);
+  }
+  .track-fill.over{background:linear-gradient(to right, var(--safe) 0%, var(--safe) var(--split), var(--danger) var(--split), var(--danger) 100%);}
+  input[type=range]{
+    position:absolute; top:-8px; left:0; width:100%; height:24px; margin:0;
+    -webkit-appearance:none; background:transparent; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:24px; height:24px; border-radius:50%;
+    background:#fff; border:3px solid var(--accent); box-shadow:0 2px 6px rgba(0,0,0,.15); cursor:pointer;
+  }
+  .marker{
+    position:absolute; top:-16px; width:2px; height:24px; background:var(--danger); opacity:.7;
+  }
+  .marker-label{
+    position:absolute; top:-34px; transform:translateX(-50%); font-size:11px; color:var(--danger); font-weight:700; white-space:nowrap;
+  }
+  .range-labels{display:flex; justify-content:space-between; font-size:12px; color:var(--text-sub); margin-top:8px;}
+
+  .note{
+    margin-top:16px; padding:12px 14px; border-radius:10px; background:var(--accent-soft);
+    font-size:13px; color:#33409c; line-height:1.5; font-weight:600;
+  }
+  .note.danger{background:#fdece4; color:#b0431b;}
+
+  .result-grid{display:flex; gap:12px; padding:16px 20px 20px;}
+  .result-box{flex:1; border:1px solid var(--border); border-radius:12px; padding:14px;}
+  .result-box.win{border-color:var(--accent); background:var(--accent-soft);}
+  .result-title{font-size:13px; color:var(--text-sub); font-weight:700; margin-bottom:6px;}
+  .result-net{font-size:19px; font-weight:800;}
+  .result-tax{font-size:12px; color:var(--text-sub); margin-top:4px;}
+  .badge{display:inline-block; font-size:11px; font-weight:800; color:var(--accent); background:#fff; border:1px solid var(--accent); border-radius:20px; padding:2px 8px; margin-top:8px;}
+
+  .disclaimer{font-size:11px; color:#aab1bb; text-align:center; margin-top:20px; line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>해외ETF 세후수익 시뮬레이터</h1>
+  <div class="sub1">일반계좌 직접투자 • ISA 절세계좌 • 국내상장 해외ETF</div>
+  <div class="sub2">투자금액을 슬라이드하면 세후수익과 절세 구간을 바로 보여드립니다.</div>
+  <div class="updated">updated at : 2026-7-5 (세율 기준 · 확인 필요, config/tax-rules.json 참고)</div>
+
+  <div class="card">
+    <div class="row">
+      <div class="label">ISA 유형</div>
+      <div class="toggle-group">
+        <div class="toggle active" data-isatype="general" data-limit="200">일반형 (200만원)</div>
+        <div class="toggle" data-isatype="low_income" data-limit="400">서민형 (400만원)</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">예상 연수익률</div>
+      <div class="content">
+        <input type="number" class="num-input" id="rateInput" value="8" step="0.5" style="text-align:left;width:80px;">
+        <span class="unit">%</span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">보유기간</div>
+      <div class="content">
+        <input type="number" class="num-input" id="yearsInput" value="3" min="1" max="10" style="text-align:left;width:80px;">
+        <span class="unit">년</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card slider-card">
+    <div class="slider-top">
+      <div>투자금액</div>
+      <div class="amt" id="amtDisplay">3,000<span>만원</span></div>
+    </div>
+    <div class="track-wrap">
+      <div class="track-bg">
+        <div class="track-fill" id="trackFill"></div>
+        <div class="marker" id="marker"></div>
+        <div class="marker-label" id="markerLabel"></div>
+      </div>
+      <input type="range" id="amountSlider" min="100" max="10000" step="50" value="3000">
+    </div>
+    <div class="range-labels"><span>100만원</span><span>10,000만원</span></div>
+    <div class="note" id="thresholdNote"></div>
+  </div>
+
+  <div class="card">
+    <div class="result-grid">
+      <div class="result-box" id="generalBox">
+        <div class="result-title">일반계좌 (직접투자)</div>
+        <div class="result-net" id="generalNet">-</div>
+        <div class="result-tax" id="generalTax">-</div>
+      </div>
+      <div class="result-box" id="isaBox">
+        <div class="result-title">ISA 계좌 (국내상장 해외ETF)</div>
+        <div class="result-net" id="isaNet">-</div>
+        <div class="result-tax" id="isaTax">-</div>
+        <div class="badge" id="isaBadge" style="display:none;">이 조건에서 더 유리</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    본 화면은 UI/UX 시안이며, 실제 계산 로직은 lib/tax의 단위 테스트를 통과한 함수를 따릅니다.<br>
+    세율·한도는 config/tax-rules.json 기준(미검증 초안)이며 실제 투자 결정 전 최신 공지 확인이 필요합니다.
+  </div>
+</div>
+
+<script>
+const slider = document.getElementById('amountSlider');
+const rateInput = document.getElementById('rateInput');
+const yearsInput = document.getElementById('yearsInput');
+const toggles = document.querySelectorAll('.toggle');
+
+let isaLimit = 200; // 만원
+
+toggles.forEach(t => t.addEventListener('click', () => {
+  toggles.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  isaLimit = Number(t.dataset.limit);
+  update();
+}));
+
+function fmt(n){ return Math.round(n).toLocaleString('ko-KR'); }
+
+function update(){
+  const principal = Number(slider.value); // 만원
+  const rate = Number(rateInput.value) / 100;
+  const years = Number(yearsInput.value);
+  const min = Number(slider.min), max = Number(slider.max);
+
+  document.getElementById('amtDisplay').innerHTML = fmt(principal) + '<span>만원</span>';
+
+  const growthFactor = Math.pow(1 + rate, years) - 1;
+  const profit = principal * growthFactor;
+
+  // 일반계좌: 기본공제 250만원, 22% 양도세
+  const generalDeduction = 250;
+  const generalTax = Math.max(0, profit - generalDeduction) * 0.22;
+  const generalNet = principal + profit - generalTax;
+
+  // ISA: 3년 이상 유지 시에만 비과세+분리과세, 아니면 혜택 취소(일반과세 15.4%, 공제없음)
+  const holdingOk = years >= 3;
+  let isaTax;
+  if (holdingOk){
+    isaTax = Math.max(0, profit - isaLimit) * 0.099;
+  } else {
+    isaTax = profit * 0.154;
+  }
+  const isaNet = principal + profit - isaTax;
+
+  document.getElementById('generalNet').textContent = fmt(generalNet) + '만원';
+  document.getElementById('generalTax').textContent = '세금 ' + fmt(generalTax) + '만원 (양도세 22%, 기본공제 250만원)';
+  document.getElementById('isaNet').textContent = fmt(isaNet) + '만원';
+  document.getElementById('isaTax').textContent = holdingOk
+    ? '세금 ' + fmt(isaTax) + '만원 (비과세 ' + isaLimit + '만원 초과분 9.9%)'
+    : '세금 ' + fmt(isaTax) + '만원 (3년 미만 중도해지 → 혜택 취소, 15.4%)';
+
+  document.getElementById('generalBox').classList.remove('win');
+  document.getElementById('isaBox').classList.remove('win');
+  document.getElementById('isaBadge').style.display = 'none';
+  if (isaNet > generalNet){
+    document.getElementById('isaBox').classList.add('win');
+    document.getElementById('isaBadge').style.display = 'inline-block';
+  } else if (generalNet > isaNet){
+    document.getElementById('generalBox').classList.add('win');
+  }
+
+  // 슬라이더 위 절세 구간 마커: profit == isaLimit 이 되는 투자금액 지점
+  const fill = document.getElementById('trackFill');
+  const marker = document.getElementById('marker');
+  const markerLabel = document.getElementById('markerLabel');
+  const note = document.getElementById('thresholdNote');
+
+  if (holdingOk && growthFactor > 0){
+    const thresholdPrincipal = isaLimit / growthFactor;
+    if (thresholdPrincipal >= min && thresholdPrincipal <= max){
+      const pct = (thresholdPrincipal - min) / (max - min) * 100;
+      fill.classList.add('over');
+      fill.style.setProperty('--split', pct + '%');
+      fill.style.width = '100%';
+      marker.style.left = pct + '%';
+      markerLabel.style.left = pct + '%';
+      markerLabel.textContent = fmt(thresholdPrincipal) + '만원부터 초과세';
+      marker.style.display='block'; markerLabel.style.display='block';
+      note.className = 'note';
+      note.textContent = '투자금액이 ' + fmt(thresholdPrincipal) + '만원을 넘으면, 이 수익률·보유기간 기준 예상 수익이 ISA 비과세 한도(' + isaLimit + '만원)를 초과해요. 초과분부터는 9.9% 분리과세가 붙습니다.';
+    } else if (thresholdPrincipal < min){
+      fill.classList.remove('over'); fill.style.width='100%'; fill.style.background='var(--danger)';
+      marker.style.display='none'; markerLabel.style.display='none';
+      note.className = 'note danger';
+      note.textContent = '이 수익률·보유기간이면 슬라이더 최소 금액(100만원)에서도 이미 비과세 한도(' + isaLimit + '만원)를 초과해요. 전액이 9.9% 분리과세 대상입니다.';
+    } else {
+      fill.classList.remove('over'); fill.style.width='100%'; fill.style.background='var(--safe)';
+      marker.style.display='none'; markerLabel.style.display='none';
+      note.className = 'note';
+      note.textContent = '이 조건에서는 슬라이더 전 구간이 비과세 한도(' + isaLimit + '만원) 이내예요. 세금 걱정 없이 투자 가능한 범위입니다.';
+    }
+  } else {
+    fill.classList.remove('over'); fill.style.width='100%'; fill.style.background='var(--danger)';
+    marker.style.display='none'; markerLabel.style.display='none';
+    note.className = 'note danger';
+    note.textContent = '보유기간이 3년 미만이면 ISA 세제 혜택이 전부 취소돼요. 비과세 구간 표시는 3년 이상일 때만 나타납니다.';
+  }
+}
+
+slider.addEventListener('input', update);
+rateInput.addEventListener('input', update);
+yearsInput.addEventListener('input', update);
+update();
+</script>
+</body>
+</html>

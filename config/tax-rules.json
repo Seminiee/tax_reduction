@@ -5,7 +5,8 @@
     "capital_gains_tax_rate": 0.22,
     "annual_basic_deduction_krw": 2500000,
     "domestic_dividend_withholding_rate": 0.154,
-    "foreign_withholding_rate_us": 0.15
+    "foreign_withholding_rate_us": 0.15,
+    "comprehensive_taxation_threshold_krw": 20000000
   },
   "isa_account": {
     "types": {
