@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: Stage 6 (배포 + QA + 지원서 자료 준비) — 사용자 확인 후 시작
-- **마지막 업데이트**: 2026-07-05 (Stage 5 완료)
+- **다음 작업**: 없음 — feature_list.json의 전 스테이지 완료. 지원서 제출 자료 최종 정리는 사용자가 직접 진행.
+- **마지막 업데이트**: 2026-07-05 (Stage 6 완료 — 프로젝트 전체 완료)
 
 ## 스테이지 체크리스트
 
@@ -16,7 +16,7 @@
 | 3 | 프론트엔드 입력 폼 + 결과 그래프 UI | done |
 | 4 | AI 자연어 파싱 + 결과 해설 (/api/explain, Anthropic API 연동) | done |
 | 5 | AI 세제 Q&A 챗봇 (선택 기능, /api/chat) | done |
-| 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | in_progress |
+| 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -87,5 +87,17 @@
 - Playwright로 실제 브라우저에서 챗봇 펼치기 → 질문 전송 → "확인이 필요합니다" 응답 렌더링 확인, 콘솔 에러 없음.
 - `npm run build`/`npm run lint`/`npm run test`(37개, 스모크 5개 스킵) 모두 통과.
 - 다음 세션에서 할 일: 사용자 확인 후 Stage 6(deploy-and-submit: 최종 Vercel 배포, 지원서 자료, README 정리) 시작.
+
+### 2026-07-05 (Stage 6)
+- 보안/개인정보: PII 입력·저장 지점 없음, XSS 취약점(innerHTML류) 없음(AI 텍스트는 전부 JSX 텍스트 보간), ANTHROPIC_API_KEY가 클라이언트 번들(.next/static)에 미노출됨을 직접 grep으로 확인.
+- npm audit: vitest 2.1.9 → 3.2.6 업그레이드로 7개 취약점(모더레이트5/high1/critical1) 중 5개 해소, Node 20.11.1 호환성도 유지(테스트 42개 전부 통과 재확인). 남은 postcss 모더레이트 1건은 next 내부 번들 의존성이라 next를 9.x로 내려야만 없어져 그대로 둠 — 런타임에 사용자 입력이 postcss로 흘러가지 않아 이 앱 기준 위험 낮음.
+- lib/rate-limit.ts 신규: in-memory IP 기반 rate limiter(분당 10회), /api/parse·/api/explain·/api/chat에 적용. 정교한 rate limiting이 아니라 데모 비용 폭주 방지용임을 코드 주석에 명시. curl로 11번째 요청부터 429+Retry-After 확인(로컬/프로덕션 모두).
+- 모바일(375px) 반응형 점검: 전반적으로 문제 없었으나, 극단값(연수익률 30%처럼 threshold가 슬라이더 왼쪽 끝에 가까운 경우) 스트레스 테스트에서 AmountSliderCard 마커 라벨이 뷰포트 밖으로 6px 잘리는 실제 버그를 발견 — 라벨 위치만 8~92%로 clamp(마커 선/트랙 분기점은 정확한 위치 유지)하는 최소 수정으로 해결.
+- 라이선스 점검(license-checker로 전체 트리 스캔): GPL(강한 카피레프트) 없음. LGPL-3.0-or-later 1건(@img/sharp-libvips-darwin-arm64, next의 선택적 이미지 최적화 의존성, 코드에서 next/image 미사용, 수정 없이 그대로 사용해 실질 문제 없음).
+- Vercel 배포 전 ANTHROPIC_API_KEY가 실제로는 등록되어 있지 않은 것을 `vercel env ls`로 발견(사용자는 등록했다고 알고 있었음) → .env.local의 값을 그대로 사용해 Vercel Production 환경변수로 직접 등록 후 배포 진행.
+- 프로덕션 배포: https://taxreduction.vercel.app (Vercel). curl로 /api/simulate, /api/parse, /api/explain, /api/chat(일반/확인필요/범위밖 3종) 전부 정상 응답 확인. Playwright로 프로덕션 URL에서 슬라이더 조작 → AI로 조건 채우기 → AI 설명 보기 → 챗봇 3문의 전체 플로우 실제 동작 확인, 콘솔 에러 없음, currentSimulation 맥락도 정확히 반영됨.
+- README.md 최종 정리: 배포 URL 추가, 기술스택 "제안/확정 아님" 문구 제거(최종 확정 스택으로 갱신), PROMPTS.md 링크 안내 추가, AI 기능 안내 문구에 /api/chat 포함.
+- `npm run build`/`npm run lint`/`npm run test`(42개, 스모크 5개 스킵) 모두 통과.
+- feature_list.json의 모든 스테이지(0~6) 완료. 다음 세션에서 새로 시작할 정해진 작업 없음 — 추가 요청 시 이 로그와 skills.md의 "확인 필요 항목"부터 참고할 것.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

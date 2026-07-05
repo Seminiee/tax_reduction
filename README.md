@@ -1,5 +1,8 @@
 # 해외ETF 세후수익 시뮬레이터 (가제)
 
+## 배포 URL
+- 프로덕션: https://taxreduction.vercel.app
+
 ## 프로젝트 소개
 서학개미가 해외 주식/ETF에 투자할 때 "일반 해외주식 계좌로 직접 투자"할지 "ISA 계좌로 국내상장 해외ETF에 투자"할지는 세금 구조가 복잡해서 정확한 세후 수익률을 비교하기 어렵습니다.
 이 서비스는 사용자의 투자 조건(금액, 예상 수익률, 보유기간, 소득 구간 등)을 입력받아 두 시나리오의 세후 수익률을 시뮬레이션하고, AI가 그 결과를 자연어로 해설해주는 웹앱입니다.
@@ -15,10 +18,13 @@
 3. AI 결과 해설 — 왜 이 결과가 나왔는지 근거(세법 조항 포함)와 함께 설명
 4. AI 세제 Q&A 챗봇 (선택 기능)
 
-## 기술 스택 (제안, 확정 아님)
-- Frontend + Backend: Next.js (TypeScript, App Router) — 단일 레포로 Vercel 배포, 심사용 URL 확보가 빠름
-- Styling: Tailwind CSS
-- AI: Anthropic API (Claude) — 자연어 파싱, 결과 해설, 챗봇
+핵심 AI 시스템 프롬프트(자연어 파싱 / 결과 해설 / 세제 챗봇) 원문과 실제 응답 예시는 [PROMPTS.md](./PROMPTS.md)를 참고하세요.
+
+## 기술 스택
+- Frontend + Backend: Next.js 16 (TypeScript, App Router) — 단일 레포로 Vercel 배포
+- Styling: Tailwind CSS v4 (CSS Modules 병행)
+- AI: Anthropic API (`@anthropic-ai/sdk`, `claude-haiku-4-5-20251001`) — 자연어 파싱, 결과 해설, 챗봇
+- 테스트: Vitest
 - 배포: Vercel
 
 ## 로컬 실행
@@ -27,7 +33,7 @@ npm install
 npm run dev
 ```
 
-AI 기능(`/api/parse`, `/api/explain`)을 쓰려면 프로젝트 루트에 `.env.local`을 만들고 `ANTHROPIC_API_KEY=sk-ant-...`를 넣어야 한다. `.env.local`은 `.gitignore`에 포함되어 있어 커밋되지 않는다.
+AI 기능(`/api/parse`, `/api/explain`, `/api/chat`)을 쓰려면 프로젝트 루트에 `.env.local`을 만들고 `ANTHROPIC_API_KEY=sk-ant-...`를 넣어야 한다. `.env.local`은 `.gitignore`에 포함되어 있어 커밋되지 않는다. 프로덕션(Vercel)에는 동일한 키가 Production 환경변수로 등록되어 있다.
 
 ## 테스트
 

@@ -76,7 +76,7 @@
     {
       "id": 6,
       "name": "deploy-and-submit",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         "최종 Vercel 배포 및 URL 확정",
         "지원서용 스크린샷/핵심 프롬프트 캡처",
