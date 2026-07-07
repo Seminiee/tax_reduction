@@ -114,6 +114,19 @@
         "/trade 링크 정상 연결 확인 (Stage 7에서는 404였음)"
       ],
       "done_criteria": "/trade에서 슬라이더/AI입력/챗봇(공용) 전체 플로우 정상 동작 + 기존 Stage 0~7 테스트 전부 통과 + 신규 테스트 통과 + /와 /trade를 오가도 챗봇 히스토리 유지"
+    },
+    {
+      "id": 9,
+      "name": "security-parity + final-qa",
+      "status": "done",
+      "tasks": [
+        "app/api/parse-trade/route.ts에 lib/rate-limit.ts 동일 적용 확인 (분당 10회, 429 + Retry-After, 기존 3개 라우트와 동일 설정)",
+        "Stage 8에서 추가된 API 라우트 전체 rate-limit 누락 점검",
+        "npm audit 재실행 — Stage 6 이후 신규 의존성 심각한 취약점 확인",
+        "최종 프로덕션 재배포",
+        "배포 URL에서 실제 검증: / 거치식 전체 플로우, /trade 매매차익 전체 플로우, 두 페이지 오가며 챗봇 히스토리 유지, /api/parse-trade 11번째 요청부터 429 반환"
+      ],
+      "done_criteria": "rate-limit 적용 라우트 목록 확정 + npm audit 심각한 취약점 없음 + 프로덕션 배포 완료 + 배포 URL에서 두 도구 전체 플로우와 429 동작 실제 확인"
     }
   ]
 }

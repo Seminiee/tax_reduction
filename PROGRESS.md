@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~8 전부 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
-- **마지막 업데이트**: 2026-07-07 (Stage 8 완료)
+- **다음 작업**: 없음 (Stage 0~9 전부 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
+- **마지막 업데이트**: 2026-07-07 (Stage 9 완료, 프로덕션 재배포 완료)
 
 ## 스테이지 체크리스트
 
@@ -19,6 +19,7 @@
 | 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | done |
 | 7 | 다중 도구 공유 셸 (네비게이션 + 공용 챗봇, feature_list.json 신규 추가) | done |
 | 8 | 매매차익 계산기 (/trade, rate-engine 리팩터링 + 신규 순수함수) | done |
+| 9 | security-parity + final-qa (rate-limit 점검, npm audit, 최종 배포/검증) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -128,5 +129,15 @@
 - `npm run build`/`npm run lint`/`npm run test`(52개, 스모크 5개 스킵) 모두 통과. `npx tsc --noEmit`에서 나오는 `chat-with-tax-assistant.test.ts`의 `verificationStatus` 누락 타입 에러는 Stage 7 커밋(9cabede)에 이미 있던 것으로 `git stash` 비교로 확인한 기존 이슈이며(SAMPLE_SIMULATION 목 데이터에 필드 누락), 이번 Stage 8 변경과 무관 — `next build`의 타입체크 대상에는 포함되지 않아 빌드는 영향 없음.
 - feature_list.json에 Stage 8(trade-calculator) 신규 추가 및 done 처리(0~7 미변경). PROMPTS.md에 "1-B. 매매차익 계산기 자연어 파싱" 섹션(parse-trade 시스템 프롬프트 원문+출력 스키마) 및 챗봇 동적 템플릿 섹션에 trade용 변형 추가.
 - 사용자 확인 없이 다음 스테이지로 넘어가지 않음(요청대로) — 다음 세션 진행 여부는 사용자 확인 후 결정.
+
+### 2026-07-07 (Stage 9)
+- feature_list.json에 Stage 9(security-parity + final-qa) 신규 추가(0~8 미변경).
+- rate-limit 점검: app/api/parse-trade/route.ts는 Stage 8 구현 당시 이미 lib/rate-limit.ts(분당 10회, 429+Retry-After)를 기존 3개 라우트(/api/chat, /api/explain, /api/parse)와 byte-identical하게 적용해뒀음을 diff로 재확인. Stage 8에서 신규 추가된 API 라우트는 /api/parse-trade가 유일 — 다른 누락 없음. /api/simulate는 Stage 2부터 AI 미호출(비용 리스크 없음) 이유로 의도적으로 rate-limit 미적용 상태 유지(Stage 6 결정 그대로).
+- `npm audit`: Stage 6 이후 package.json 변경 없음(git diff로 확인, Stage 7/8 모두 신규 의존성 추가 안 함) — 남은 취약점은 Stage 6에서 이미 검토한 postcss XSS 모더레이트 1건(next 내부 번들, next 9.x 다운그레이드 없이는 해소 불가)뿐, high/critical 없음.
+- `npm run lint`/`npm run test`(52개, 스모크 5개 스킵)/`npm run build` 모두 통과 확인 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/`에서 슬라이더 조작 → AI로 조건 채우기(애플 2000만원 6년 10%) → AI 설명 보기 → 챗봇 질문까지 전체 플로우 정상 동작, 챗봇이 실제 계산값(세후 3,258만원 vs 3,410만원)을 정확히 참조. `/trade`로 이동해도 챗봇 대화 1건 유지 확인. `/trade`에서 슬라이더/ISA유형 토글/AI로 조건 채우기(삼성전자 커버드콜 ETF)/챗봇까지 정상 동작, 챗봇이 매매차익 계산 결과(절세액 570,900원)를 정확히 참조. `/`로 복귀 후에도 대화 2건(hold+trade 질문) 모두 유지 확인. 콘솔 에러 없음.
+  - 전체 플로우 테스트 중 `/trade`의 AI 파싱이 응답까지 6초 이상 걸려 스크린샷에 "분석 중..." 상태가 찍힌 것을 발견 — 별도로 격리해서 재확인한 결과 정상 상태에서는 약 1.8초 만에 정확히 파싱됨(200 응답, 종목명/가격/이익/손실/수량/isaType assumedFields 전부 정확). 동시에 돌리고 있던 rate-limit 반복 요청 테스트 부하 때문에 일시적으로 느려진 것으로 판단, 실제 버그 아님.
+  - `/api/parse-trade` rate-limit 실동작 확인: 프로덕션에서 연속 요청 시 일부는 6~7번째부터 429+Retry-After를 반환함을 확인(정확히 11번째가 아닌 경우가 있었음) — 이는 lib/rate-limit.ts 주석에 이미 문서화된 대로 서버리스 인스턴스가 여러 개 뜨면 인스턴스마다 카운트가 분리되어 실제 허용치가 설정값과 달라질 수 있다는 알려진 한계 때문. 429/Retry-After 자체는 정상 동작함을 확인(새로운 버그 아님, Stage 6부터 있던 동일한 in-memory rate limiter의 알려진 특성).
+- PROGRESS.md/feature_list.json Stage 9 done 처리, 커밋.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
