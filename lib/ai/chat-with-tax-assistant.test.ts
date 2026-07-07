@@ -10,6 +10,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import {
   buildCurrentSimulationContext,
+  CHAT_SYSTEM_PROMPT,
   chatWithTaxAssistant,
   HAIKU_MODEL,
   MAX_HISTORY_MESSAGES,
@@ -21,6 +22,7 @@ import {
 } from "./chat-with-tax-assistant";
 
 const SAMPLE_SIMULATION: ChatCurrentSimulation = {
+  kind: "hold",
   request: {
     principalKrw: 10_000_000,
     annualReturnRate: 0.08,
@@ -92,12 +94,17 @@ describe("sliceRecentMessages (히스토리 길이 제한)", () => {
 });
 
 describe("buildCurrentSimulationContext", () => {
-  it("투자금액/수익률/세후금액을 포함한 컨텍스트 문자열을 만든다", () => {
+  it("투자금액/수익률/세후금액을 포함한 컨텍스트 문자열을 만든다 (kind: hold)", () => {
     const context = buildCurrentSimulationContext(SAMPLE_SIMULATION);
     expect(context).toContain("10,000,000원");
     expect(context).toContain("8.0%");
     expect(context).toContain("14,210,759원");
     expect(context).toContain("14,426,646원");
+  });
+
+  it("kind가 trade면 빈 문자열을 반환한다 (Stage 8 전 — 타입만 존재)", () => {
+    const context = buildCurrentSimulationContext({ kind: "trade" });
+    expect(context).toBe("");
   });
 });
 
@@ -170,6 +177,16 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
 
     const [params] = mockCreate.mock.calls[0];
     expect(params.system).not.toContain("[현재 시뮬레이션 조건]");
+  });
+
+  it("currentSimulation이 kind: trade면 아직 컨텍스트를 주입하지 않는다 (Stage 8 전)", async () => {
+    mockReply("일반적인 설명입니다.");
+
+    await chatWithTaxAssistant([{ role: "user", content: "ISA가 뭐예요?" }], { kind: "trade" });
+
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.system).not.toContain("[현재 시뮬레이션 조건]");
+    expect(params.system).toBe(CHAT_SYSTEM_PROMPT);
   });
 
   it("히스토리는 최근 메시지만 잘라 API에 전달한다", async () => {

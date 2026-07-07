@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ChatProvider } from "@/components/chat/ChatContext";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import { SiteNav } from "@/components/site-shell/SiteNav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,7 +30,13 @@ export default function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ChatProvider>
+          <SiteNav />
+          {children}
+          <ChatPanel />
+        </ChatProvider>
+      </body>
     </html>
   );
 }

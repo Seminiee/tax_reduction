@@ -83,6 +83,20 @@
         "README 최종 정리"
       ],
       "done_criteria": "심사용 URL 접속 가능 + 지원서 초안 완성"
+    },
+    {
+      "id": 7,
+      "name": "site-shell",
+      "status": "done",
+      "tasks": [
+        "app/layout.tsx에 공유 셸 추가: 상단 네비게이션(/ 거치 기준 수익, /trade 매매차익 계산기 — 아직 없어도 링크만), 중립 슬레이트 색상, 각 도구 자체 테마(블루/그린)는 유지",
+        "챗봇 UI를 components/tax-simulator에서 layout 레벨 공유 컴포넌트(components/chat)로 이동, React Context로 페이지 이동해도 대화 히스토리 유지",
+        "챗봇 버튼/패널 색상을 두 도구 색과 무관한 슬레이트/네이비 중립색으로 재지정",
+        "lib/ai/chat-with-tax-assistant.ts의 ChatCurrentSimulation을 discriminated union({kind:'hold'}|{kind:'trade'})으로 일반화, buildCurrentSimulationContext도 분기 처리 (trade는 타입만, 실연동은 Stage 8)",
+        "skills.md '6. 다중 도구 구조' 섹션 추가",
+        "README.md에 다중 도구 구조 반영"
+      ],
+      "done_criteria": "/에서 기존 기능(슬라이더/AI입력/챗봇) 전부 정상 동작 + 상단 네비에 매매차익 계산기 링크 노출(클릭 시 404 허용) + 챗봇이 페이지 이동에도 리마운트 없이 유지되는 구조로 존재"
     }
   ]
 }

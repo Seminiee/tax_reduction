@@ -1,17 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import taxRules from "@/config/tax-rules.json";
 import { simulateGeneralAccount } from "@/lib/tax/general-account";
 import { simulateIsaAccount } from "@/lib/tax/isa-account";
 import { findIsaThresholdPrincipal } from "@/lib/tax/threshold";
+import { useChatContext } from "@/components/chat/ChatContext";
 import { Header } from "./Header";
 import { ConditionInputCard, type TwoWayIsaType } from "./ConditionInputCard";
 import { AmountSliderCard } from "./AmountSliderCard";
 import { ResultComparisonCard } from "./ResultComparisonCard";
 import { NaturalLanguageInputCard } from "./NaturalLanguageInputCard";
 import { AiExplanationPanel } from "./AiExplanationPanel";
-import { ChatPanel } from "./ChatPanel";
 import { Disclaimer } from "./Disclaimer";
 import { krwToManwon, manwonToKrw } from "./format";
 import styles from "./TaxSimulator.module.css";
@@ -121,8 +121,11 @@ export function TaxSimulator() {
     return data.explanation as string;
   }, [principalKrw, annualReturnRate, holdingYears, isaType, generalResult, isaResult]);
 
+  const { setCurrentSimulation } = useChatContext();
+
   const currentSimulation = useMemo(
     () => ({
+      kind: "hold" as const,
       request: {
         principalKrw,
         annualReturnRate,
@@ -148,6 +151,14 @@ export function TaxSimulator() {
     }),
     [principalKrw, annualReturnRate, holdingYears, isaType, generalResult, isaResult]
   );
+
+  // Stage 7: 챗봇이 layout 레벨 공유 컴포넌트로 이동했으므로, 이 페이지의 최신 시뮬레이션
+  // 조건을 공유 컨텍스트에 계속 밀어 넣어야 챗봇이 "방금 계산한 조건"을 참조할 수 있다.
+  // 이 페이지를 벗어나면(언마운트) 다른 도구의 컨텍스트와 섞이지 않도록 비워준다.
+  useEffect(() => {
+    setCurrentSimulation(currentSimulation);
+    return () => setCurrentSimulation(null);
+  }, [currentSimulation, setCurrentSimulation]);
 
   return (
     <div className={styles.page}>
@@ -180,7 +191,6 @@ export function TaxSimulator() {
           minHoldingYears={minHoldingYears}
         />
         <AiExplanationPanel onExplain={handleExplain} />
-        <ChatPanel currentSimulation={currentSimulation} />
         <Disclaimer />
       </div>
     </div>
