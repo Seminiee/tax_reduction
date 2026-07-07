@@ -97,6 +97,23 @@
         "README.md에 다중 도구 구조 반영"
       ],
       "done_criteria": "/에서 기존 기능(슬라이더/AI입력/챗봇) 전부 정상 동작 + 상단 네비에 매매차익 계산기 링크 노출(클릭 시 404 허용) + 챗봇이 페이지 이동에도 리마운트 없이 유지되는 구조로 존재"
+    },
+    {
+      "id": 8,
+      "name": "trade-calculator",
+      "status": "done",
+      "spec_ref": "design/ui_mockup_mk.html (레이아웃/그린테마/게이지바 기준. 사용자가 지칭한 design/merged-ui-mockup.html은 실존하지 않아 이 파일로 대체함 — PROGRESS.md 참고)",
+      "tasks": [
+        "lib/tax/rate-engine.ts 신규: applyGeneralCapitalGainsTax, applyIsaSeparateTax 순수함수 추출",
+        "general-account.ts/isa-account.ts가 rate-engine.ts를 내부적으로 쓰도록 리팩터링 (기존 테스트 전부 통과 필수)",
+        "lib/tax/trade-calculator.ts 신규: 매매차익 순수함수 (연간 납입한도 초과 시 일반계좌 강제전환 로직 포함), 최소 4개 단위테스트",
+        "skills.md: 매매차익 계산기는 ISA 3년 의무유지 가정 + 금융소득종합과세 미포함 스코프 명시",
+        "app/trade/page.tsx + 컴포넌트: ui_mockup_mk.html 레이아웃/그린테마/게이지바 이식, trade-calculator.ts 연동, 'ISA 3년 의무유지를 가정합니다' 상시 노출",
+        "app/api/parse-trade/route.ts 신규 (기존 /api/parse 미변경) + 실제 Claude 연동, PROMPTS.md에 원문 기록",
+        "TradeSimulationContext 실제 필드 채우기 + buildCurrentSimulationContext trade 분기 구현, PROMPTS.md 동적 템플릿 추가",
+        "/trade 링크 정상 연결 확인 (Stage 7에서는 404였음)"
+      ],
+      "done_criteria": "/trade에서 슬라이더/AI입력/챗봇(공용) 전체 플로우 정상 동작 + 기존 Stage 0~7 테스트 전부 통과 + 신규 테스트 통과 + /와 /trade를 오가도 챗봇 히스토리 유지"
     }
   ]
 }

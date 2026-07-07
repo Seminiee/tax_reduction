@@ -74,6 +74,42 @@ assumedFields: { field: string; reason: string }[]
 
 ---
 
+## 1-B. 매매차익 계산기 자연어 파싱 (`/api/parse-trade`, Stage 8)
+
+- 모델: `claude-haiku-4-5-20251001`
+- 방식: `client.messages.parse()` + `zodOutputFormat`(구조화된 JSON 출력 강제)
+- max_tokens: 1024
+- 기존 `/api/parse`(거치식 도구)와는 입력 스키마가 달라 별도 라우트/파서(`lib/ai/parse-trade-input.ts`)로 분리했다. 회귀 위험을 피하기 위해 `/api/parse`는 이 작업에서 전혀 수정하지 않았다.
+
+### 시스템 프롬프트 원문
+
+```
+당신은 한국 세금 시뮬레이터의 매매차익 계산기 입력 파서입니다. 사용자가 자유롭게 서술한 매매 계획을 읽고 아래 필드를 채워 JSON으로 반환하세요.
+
+- stockName: 종목명(문자열). 언급이 없으면 "종목"으로 가정하세요.
+- currentPriceKrw: 현재 주가(원 단위 정수).
+- expectedProfitPerShareKrw: 주당 예상 이익(원, 0 이상). 언급이 없으면 0으로 가정하세요.
+- expectedLossPerShareKrw: 주당 예상 손실(원, 0 이상인 크기값). 언급이 없으면 0으로 가정하세요.
+- quantity: 매수 수량(정수).
+- isaType: "general"(일반형) | "low_income"(서민형) | "farmer"(농어민형). 언급이 없으면 "general"로 가정하세요.
+
+사용자가 명시적으로 말하지 않아 기본값으로 채운 모든 필드는 assumedFields 배열에 {field, reason} 형태로 반드시 포함하세요. reason은 왜 그 기본값을 선택했는지 한국어로 간단히 설명하세요. 사용자가 준 정보로 확정할 수 있는 필드는 assumedFields에 넣지 마세요.
+```
+
+### 출력 스키마 (zod, `ParsedTradeInputSchema`)
+
+```
+stockName: string
+currentPriceKrw: number
+expectedProfitPerShareKrw: number
+expectedLossPerShareKrw: number
+quantity: number
+isaType: "general" | "low_income" | "farmer"
+assumedFields: { field: string; reason: string }[]
+```
+
+---
+
 ## 2. 결과 해설 (`/api/explain`)
 
 - 모델: `claude-haiku-4-5-20251001`
@@ -144,12 +180,24 @@ assumedFields: { field: string; reason: string }[]
 
 ### 시스템 프롬프트 원문 (동적 추가 부분 — currentSimulation이 있을 때만 위 고정 프롬프트 뒤에 이어붙임)
 
+거치식 도구(`/`, `kind: "hold"`)에서 왔으면 아래 템플릿을 붙인다.
+
 ```
 [현재 시뮬레이션 조건]
 사용자가 방금 아래 조건으로 시뮬레이션을 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요.
 - 투자금액: {principalKrw}원, 연 수익률: {rate}%, 배당수익률: {dividendRate}%, 보유기간: {holdingYears}년, ISA 유형: {isaType}
 - 일반계좌 세후: {generalFinalAfterTaxValue}원 (세금 {generalTotalTax}원)
 - ISA 세후: {isaFinalAfterTaxValue}원 (세금 {isaTax}원, 3년 미만 중도해지 여부: {예/아니오})
+```
+
+매매차익 계산기(`/trade`, `kind: "trade"`, Stage 8)에서 왔으면 아래 템플릿을 붙인다. 이 도구는 ISA 3년 의무유지를 가정하고 금융소득종합과세를 다루지 않으므로, hold 템플릿과 달리 중도해지 여부 필드가 없고 대신 연간 납입한도 초과/일반계좌 강제전환 여부를 포함한다.
+
+```
+[현재 시뮬레이션 조건 — 매매차익 계산기]
+사용자가 방금 아래 조건으로 매매차익 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며 금융소득종합과세는 계산하지 않습니다.
+- 종목: {stockName}, 현재가: {currentPriceKrw}원, 수량: {quantity}주, 주당 예상 이익: {expectedProfitPerShareKrw}원, 주당 예상 손실: {expectedLossPerShareKrw}원, ISA 유형: {isaType}
+- 연간 납입한도(2,000만원) 초과 여부: {예/아니오} (ISA 편입 {isaQuantity}주 / 일반계좌 강제전환 {generalQuantity}주)
+- 실제 발생 세금: {totalTaxKrw}원 (ISA 분리과세 {isaTaxKrw}원 + 강제전환분 양도소득세 {generalForcedTaxKrw}원), 전량 일반계좌였다면 {generalOnlyTaxKrw}원, 절세액: {savedAmountKrw}원
 ```
 
 (중괄호 부분은 `lib/ai/chat-with-tax-assistant.ts`의 `buildCurrentSimulationContext`가 실제 값으로 채운다.)

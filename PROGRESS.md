@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: Stage 8 (매매차익 계산기 `/trade` 구현, `design/ui_mockup_mk.html` 시안 기반) — 사용자 확인 후 시작
-- **마지막 업데이트**: 2026-07-07 (Stage 7 완료)
+- **다음 작업**: 없음 (Stage 0~8 전부 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
+- **마지막 업데이트**: 2026-07-07 (Stage 8 완료)
 
 ## 스테이지 체크리스트
 
@@ -18,6 +18,7 @@
 | 5 | AI 세제 Q&A 챗봇 (선택 기능, /api/chat) | done |
 | 6 | 배포(Vercel) + QA + 지원서 자료(스크린샷, 프롬프트 캡처) 준비 | done |
 | 7 | 다중 도구 공유 셸 (네비게이션 + 공용 챗봇, feature_list.json 신규 추가) | done |
+| 8 | 매매차익 계산기 (/trade, rate-engine 리팩터링 + 신규 순수함수) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -112,5 +113,20 @@
 - skills.md에 "6. 다중 도구 구조" 섹션 추가(도구별 테마 독립성, 챗봇 공유, 매매차익 도구의 ISA 3년 유지 가정 명시). UI_SPEC.md에 "7. Stage 7 갱신" 절 추가(6절의 챗봇 위치/색상 설명을 대체한다고 명시). README.md에 다중 도구 구조 섹션 추가.
 - `npm run build`/`npm run lint`/`npm run test`(44개, 스모크 5개 스킵) 모두 통과.
 - 다음 세션에서 할 일: 사용자 확인 후 Stage 8(매매차익 계산기 `/trade`, `design/ui_mockup_mk.html` 시안 기반) 시작. 구현 시 skills.md 6절의 "ISA 3년 유지 가정" 제약을 지킬 것.
+
+### 2026-07-07 (Stage 8)
+- 시작 전 확인: 사용자가 지칭한 `design/merged-ui-mockup.html`은 저장소에 존재하지 않음(디렉터리에는 `design/ui-mockup.html`, `design/ui_mockup_mk.html`만 존재). skills.md/UI_SPEC.md/README가 계속 참조해온 `design/ui_mockup_mk.html`을 대신 기준 시안으로 사용 — 사용자에게 이 대체 사실을 알림.
+- `design/ui_mockup_mk.html`의 `updateUI()`는 일반계좌 세금을 `profit*qty*0.154`(배당소득세율)로 계산하는데, 이는 이 프로젝트가 일관되게 쓰는 일반계좌 양도소득세율(22%+기본공제 250만원)과 다름. 사용자가 이번 요청에서 직접 지정한 `applyGeneralCapitalGainsTax` 함수 시그니처(`capital_gains_tax_rate`+`annual_basic_deduction_krw` 사용)가 이 불일치를 명시적으로 해소하므로, 목업의 0.154 공식이 아니라 이 함수 스펙을 채택함(레이아웃/게이지/인터랙션 흐름만 목업 그대로 이식).
+- lib/tax/rate-engine.ts 신규: `applyGeneralCapitalGainsTax`(순이익-기본공제)*양도세율, `applyIsaSeparateTax`(순이익-비과세한도)*분리과세율 — 두 순수함수 모두 config/tax-rules.json을 인자로 받아 하드코딩 없음.
+- lib/tax/general-account.ts, lib/tax/isa-account.ts가 위 두 함수를 내부적으로 쓰도록 리팩터링. 리팩터링 직후 기존 44개 테스트 전부 재실행해 통과 확인(변경 전/후 결과 완전히 동일) — 회귀 없음.
+- lib/tax/trade-calculator.ts 신규: `calculateTrade` 순수함수. 연간 납입한도(2,000만원) 초과 시 초과 수량을 일반계좌 규칙으로 강제 전환(`isaQuantity`/`generalQuantity` 분할), ISA 편입분은 이익-손실 손익통산 후 비과세한도 초과분에 9.9% 분리과세, 강제전환분은 22%+기본공제 양도소득세 적용. 단위테스트 5개(이익만 있는 케이스/손익통산 2건/서민형 비과세한도 초과/납입한도 초과 분할) 전부 통과.
+- skills.md 6절에 매매차익 계산기 스코프 제약 추가: ISA 3년 의무유지 가정 유지, 금융소득종합과세 계산 미포함을 거치식 도구와 명확히 구분해 명시.
+- app/api/parse-trade/route.ts + lib/ai/parse-trade-input.ts 신규: 기존 `/api/parse`(거치식)와 완전히 분리된 라우트/파서(스키마가 달라 공유 시 회귀 위험 있다고 판단), `client.messages.parse()` + zodOutputFormat으로 자연어 매매 계획을 종목명/현재가/이익/손실/수량/ISA유형으로 파싱, assumedFields 패턴 동일 적용.
+- lib/ai/chat-with-tax-assistant.ts: `TradeSimulationContext`에 실제 필드(request: 종목/현재가/이익/손실/수량/ISA유형, response: trade-calculator 계산 결과 전체) 채움. `buildCurrentSimulationContext`의 trade 분기를 hold 분기와 동일한 패턴으로 구현(종목/수량/한도초과 여부/실제 세금/절세액 요약). app/api/chat/route.ts의 `isValidCurrentSimulation`도 trade에 대해 request/response 존재 검증하도록 갱신(기존엔 kind만 확인). 기존 chat-with-tax-assistant.test.ts의 placeholder trade 테스트 2건을 실제 필드 기반 테스트로 교체.
+- app/trade/page.tsx + components/trade-calculator/*(TradeCalculator, IsaTypeToggle, ScenarioForm, ResultPanel, NaturalLanguageInputCard, Disclaimer): `design/ui_mockup_mk.html`의 2컬럼 레이아웃/그린-에메랄드 테마/게이지바(납입한도·비과세소진율·세금비교)를 Tailwind 유틸리티 클래스로 그대로 이식(range input thumb만 CSS 모듈로 분리, Tailwind로 표현 불가). ISA 유형은 거치식 도구와 동일하게 2단 토글(일반형/서민형)만 노출. "ISA 3년 의무유지를 가정합니다" 문구를 Disclaimer에 상시 노출. 챗봇 공유 컨텍스트 동기화는 TaxSimulator.tsx와 동일한 useEffect+cleanup 패턴 재사용.
+- Playwright로 실제 브라우저 검증: `/trade` 기본 렌더(콘솔 에러 없음), 수량 슬라이더를 최대(2,000주)로 올려 연간 납입한도 초과 배너 노출 확인, ISA 유형을 서민형으로 전환 시 비과세한도/세금 재계산 확인, 플로팅 챗봇에서 "지금 계산한 조건 요약해줘" 질문 시 실제 Anthropic API가 종목명/수량/173주 ISA·1,827주 일반계좌 분할/정확한 세금 금액(5,479,100원 등)을 정확히 반영한 응답을 반환함을 확인, `/trade`→`/`→`/trade` 왕복 후에도 대화 메시지 유지 확인. 계산 결과는 수기 계산과 전부 일치(예: 200주 기본값 기준 절세액 51,095원, 2,000주+일반형 기준 511,995원).
+- `npm run build`/`npm run lint`/`npm run test`(52개, 스모크 5개 스킵) 모두 통과. `npx tsc --noEmit`에서 나오는 `chat-with-tax-assistant.test.ts`의 `verificationStatus` 누락 타입 에러는 Stage 7 커밋(9cabede)에 이미 있던 것으로 `git stash` 비교로 확인한 기존 이슈이며(SAMPLE_SIMULATION 목 데이터에 필드 누락), 이번 Stage 8 변경과 무관 — `next build`의 타입체크 대상에는 포함되지 않아 빌드는 영향 없음.
+- feature_list.json에 Stage 8(trade-calculator) 신규 추가 및 done 처리(0~7 미변경). PROMPTS.md에 "1-B. 매매차익 계산기 자연어 파싱" 섹션(parse-trade 시스템 프롬프트 원문+출력 스키마) 및 챗봇 동적 템플릿 섹션에 trade용 변형 추가.
+- 사용자 확인 없이 다음 스테이지로 넘어가지 않음(요청대로) — 다음 세션 진행 여부는 사용자 확인 후 결정.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

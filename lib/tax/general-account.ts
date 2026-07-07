@@ -1,8 +1,7 @@
 import taxRules from "@/config/tax-rules.json";
+import { applyGeneralCapitalGainsTax } from "./rate-engine";
 
 const {
-  capital_gains_tax_rate: CAPITAL_GAINS_TAX_RATE,
-  annual_basic_deduction_krw: ANNUAL_BASIC_DEDUCTION_KRW,
   domestic_dividend_withholding_rate: DOMESTIC_DIVIDEND_WITHHOLDING_RATE,
   foreign_withholding_rate_us: FOREIGN_WITHHOLDING_RATE_US,
   comprehensive_taxation_threshold_krw: COMPREHENSIVE_TAXATION_THRESHOLD_KRW,
@@ -121,8 +120,11 @@ export function simulateGeneralAccount(
 
   const finalBalanceBeforeTax = balance;
   const realizedCapitalGain = finalBalanceBeforeTax - costBasis;
-  const taxableCapitalGain = Math.max(0, realizedCapitalGain - ANNUAL_BASIC_DEDUCTION_KRW);
-  const capitalGainsTax = taxableCapitalGain * CAPITAL_GAINS_TAX_RATE;
+  const taxableCapitalGain = Math.max(
+    0,
+    realizedCapitalGain - taxRules.general_account.annual_basic_deduction_krw
+  );
+  const capitalGainsTax = applyGeneralCapitalGainsTax(realizedCapitalGain, taxRules);
   const totalTax = totalDividendTax + capitalGainsTax;
   const finalAfterTaxValue = finalBalanceBeforeTax - capitalGainsTax;
 

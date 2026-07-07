@@ -10,7 +10,6 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import {
   buildCurrentSimulationContext,
-  CHAT_SYSTEM_PROMPT,
   chatWithTaxAssistant,
   HAIKU_MODEL,
   MAX_HISTORY_MESSAGES,
@@ -40,6 +39,30 @@ const SAMPLE_SIMULATION: ChatCurrentSimulation = {
       taxableExcess: 2_693_281,
       taxFreeLimitKrw: 2_000_000,
     },
+  },
+};
+
+const SAMPLE_TRADE_SIMULATION: ChatCurrentSimulation = {
+  kind: "trade",
+  request: {
+    stockName: "나스닥 100 ETF",
+    currentPriceKrw: 100_000,
+    expectedProfitPerShareKrw: 50_000,
+    expectedLossPerShareKrw: 0,
+    quantity: 200,
+    isaType: "general",
+  },
+  response: {
+    totalInvestKrw: 20_000_000,
+    isExceedingContributionLimit: false,
+    isaQuantity: 200,
+    generalQuantity: 0,
+    taxFreeLimitKrw: 2_000_000,
+    isaTaxKrw: 792_000,
+    generalForcedTaxKrw: 0,
+    generalOnlyTaxKrw: 1_650_000,
+    totalTaxKrw: 792_000,
+    savedAmountKrw: 858_000,
   },
 };
 
@@ -102,9 +125,12 @@ describe("buildCurrentSimulationContext", () => {
     expect(context).toContain("14,426,646원");
   });
 
-  it("kind가 trade면 빈 문자열을 반환한다 (Stage 8 전 — 타입만 존재)", () => {
-    const context = buildCurrentSimulationContext({ kind: "trade" });
-    expect(context).toBe("");
+  it("종목/수량/절세액을 포함한 컨텍스트 문자열을 만든다 (kind: trade)", () => {
+    const context = buildCurrentSimulationContext(SAMPLE_TRADE_SIMULATION);
+    expect(context).toContain("나스닥 100 ETF");
+    expect(context).toContain("200주");
+    expect(context).toContain("858,000원");
+    expect(context).toContain("ISA 3년 의무유지");
   });
 });
 
@@ -179,14 +205,17 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
     expect(params.system).not.toContain("[현재 시뮬레이션 조건]");
   });
 
-  it("currentSimulation이 kind: trade면 아직 컨텍스트를 주입하지 않는다 (Stage 8 전)", async () => {
-    mockReply("일반적인 설명입니다.");
+  it("currentSimulation이 kind: trade면 매매차익 컨텍스트를 시스템 프롬프트에 추가한다", async () => {
+    mockReply("당신이 방금 계산한 조건 기준으로는 절세 효과가 있어요.");
 
-    await chatWithTaxAssistant([{ role: "user", content: "ISA가 뭐예요?" }], { kind: "trade" });
+    await chatWithTaxAssistant(
+      [{ role: "user", content: "이 조건에서 얼마나 절세돼요?" }],
+      SAMPLE_TRADE_SIMULATION
+    );
 
     const [params] = mockCreate.mock.calls[0];
-    expect(params.system).not.toContain("[현재 시뮬레이션 조건]");
-    expect(params.system).toBe(CHAT_SYSTEM_PROMPT);
+    expect(params.system).toContain("[현재 시뮬레이션 조건 — 매매차익 계산기]");
+    expect(params.system).toContain("858,000원");
   });
 
   it("히스토리는 최근 메시지만 잘라 API에 전달한다", async () => {

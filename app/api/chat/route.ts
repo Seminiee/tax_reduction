@@ -12,9 +12,7 @@ const FALLBACK_MESSAGE = "지금은 챗봇을 쓸 수 없어요. 잠시 후 다�
 function isValidCurrentSimulation(value: unknown): value is ChatCurrentSimulation {
   if (!value || typeof value !== "object") return false;
   const sim = value as Record<string, unknown>;
-  // Stage 8 전: trade는 kind만 확인한다(필드는 아직 정의되지 않음).
-  if (sim.kind === "trade") return true;
-  if (sim.kind !== "hold") return false;
+  if (sim.kind !== "hold" && sim.kind !== "trade") return false;
   return (
     typeof sim.request === "object" &&
     sim.request !== null &&

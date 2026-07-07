@@ -1,8 +1,8 @@
 import taxRules from "@/config/tax-rules.json";
+import { applyIsaSeparateTax } from "./rate-engine";
 
 const {
   types: ISA_TYPES,
-  separate_tax_rate_over_limit: SEPARATE_TAX_RATE_OVER_LIMIT,
   min_holding_years: MIN_HOLDING_YEARS,
   foreign_dividend_pre_refund_abolished: FOREIGN_DIVIDEND_PRE_REFUND_ABOLISHED,
 } = taxRules.isa_account;
@@ -101,7 +101,7 @@ export function simulateIsaAccount(input: IsaAccountSimulationInput): IsaAccount
     tax = Math.max(0, netGain) * DOMESTIC_DIVIDEND_WITHHOLDING_RATE;
   } else {
     taxableExcess = Math.max(0, netGain - taxFreeLimitKrw);
-    tax = taxableExcess * SEPARATE_TAX_RATE_OVER_LIMIT;
+    tax = applyIsaSeparateTax(netGain, taxFreeLimitKrw, taxRules);
   }
 
   const finalAfterTaxValue = finalBalanceBeforeTax - tax;
