@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~12 전부 완료, 로컬 검증까지 완료). Stage 12는 코드 변경만 커밋된 상태 — **프로덕션 재배포는 사용자 확인 후 별도 진행**(요청받은 대로 재배포하지 않음)
-- **마지막 업데이트**: 2026-07-11 (Stage 12 완료, 로컬 검증까지만 진행)
+- **다음 작업**: 없음 (Stage 0~13 전부 완료, 프로덕션 재배포 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
+- **마지막 업데이트**: 2026-07-11 (Stage 13 완료, 프로덕션 재배포 완료)
 
 ## 스테이지 체크리스트
 
@@ -23,6 +23,7 @@
 | 10 | 배당금 계산기 (/dividend, rate-engine에 applyGeneralDividendTax 추가) | done |
 | 11 | final-security-and-mobile-check (rate-limit/모바일/npm audit/최종 배포) | done |
 | 12 | dividend-quantity-input-modes (수량/총매수금액 입력모드, resolveDividendQuantity) | done |
+| 13 | deploy-and-verify (rate-limit/모바일 재확인, 최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -180,5 +181,14 @@
 - `npm run build`/`npm run lint`/`npm run test`(68개, 스모크 5개 스킵) 모두 통과.
 - 로컬 브라우저 검증(Playwright): 수량모드 260주 vs 금액모드 3,000만원(→260주 내림, 요청자의 예시 그대로: 실제 매수 가능 금액 약 2,990만원) 두 경우가 헤드라인·세금이득(₩80,080)까지 완전히 동일함을 실제 화면에서 확인(invariant 실동작 검증). 금액모드에서 "입력하신 금액 중 실제 매수 가능한 금액은 약 ₩29,900,000(260주)입니다" 안내문구 정상 노출 확인. AI 자연어 입력으로 "코카콜라 300주 보유..." → quantity 모드 UI로 자동 전환, "나스닥 100 ETF 11만5천원에 3천만원어치..." → amount 모드 UI로 자동 전환되며 정확히 260주로 도출됨을 실제 Claude API 호출로 확인. 콘솔 에러 없음.
 - feature_list.json Stage 12 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-11 (Stage 13)
+- feature_list.json에 Stage 13(deploy-and-verify) 신규 추가(0~12 미변경).
+- rate-limit 재확인: 5개 API 라우트(/api/parse, /api/explain, /api/chat, /api/parse-trade, /api/parse-dividend) 모두 `checkRateLimit(getClientIp(request))` 블록이 여전히 정상 존재함을 grep으로 확인 — Stage 12의 parse-dividend 스키마 확장 작업 중 실수로 지워진 곳 없음.
+- `npm audit`: Stage 11 이후 package.json/package-lock.json 변경 없음(git diff로 확인, Stage 12는 신규 의존성 추가 안 함) — 남은 취약점은 기존과 동일한 postcss XSS 모더레이트 1건뿐, 신규 취약점 없음.
+- `/dividend` 신규 UI(입력모드 토글, 주가 입력 필드, "실제 매수 가능한 금액은 약 ~" 안내문구)를 375px에서 Playwright로 점검: 수평 오버플로우 없음, 콘솔 에러 없음, 금액 모드 슬라이더 단위(만원)와 안내문구 모두 잘리지 않고 박스 안에서 자연스럽게 줄바꿈됨을 확인. **실제로 깨진 부분이 없어 코드 수정은 하지 않음.**
+- `npm run build`/`npm run lint`/`npm run test`(68개, 스모크 5개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/dividend`에서 수량모드(260주)와 총매수금액모드(3,000만원→260주 내림)의 헤드라인이 완전히 동일함을 재확인(₩29,900,000, 260주). AI 자연어 입력 "코카콜라 300주 보유..." → 수량모드로 정상 전환, "나스닥 100 ETF 11만5천원에 3천만원어치..." → 총매수금액모드로 정상 전환되며 260주로 정확히 도출됨을 실제 API로 확인. 챗봇에게 "지금 실제로 매수되는 금액이 얼마예요?"라고 물었을 때 "29,900,000원이며 260주만 매수 가능해서 내림 처리됐다"는 정확한 이유까지 포함한 응답을 확인(resolveDividendQuantity의 내림 로직을 정확히 반영). 이어서 `/dividend`→`/`→`/trade`→`/dividend` 3페이지 왕복 시 챗봇 대화 1건이 끝까지 유지됨을 확인. 콘솔 에러 없음.
+- feature_list.json Stage 13 done 처리, 커밋.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
