@@ -10,16 +10,23 @@
   },
   "isa_account": {
     "types": {
-      "general": { "tax_free_limit_krw": 2000000 },
-      "low_income": { "tax_free_limit_krw": 4000000 },
-      "farmer": { "tax_free_limit_krw": 4000000 }
+      "general": { "tax_free_limit_krw": 2000000, "verified": true },
+      "low_income": { "tax_free_limit_krw": 4000000, "verified": true },
+      "farmer": { "tax_free_limit_krw": 4000000, "verified": true }
     },
     "separate_tax_rate_over_limit": 0.099,
     "min_holding_years": 3,
     "annual_contribution_limit_krw": 20000000,
     "total_contribution_limit_krw": 100000000,
     "foreign_dividend_pre_refund_abolished": true,
-    "pre_refund_change_note": "2025년부터 해외 배당 원천세 선환급 폐지 논의/시행 -> 세후 금액 기준 재투자로 변경되어 과세이연 복리효과 감소. 최종 시행 방식은 재확인 필요."
+    "pre_refund_change_note": "2025년부터 해외 배당 원천세 선환급 폐지 논의/시행 -> 세후 금액 기준 재투자로 변경되어 과세이연 복리효과 감소. 최종 시행 방식은 재확인 필요.",
+    "pending_legislation": {
+      "description": "정부가 비과세 한도를 일반형 500만원, 서민형 1,000만원으로, 연 납입한도를 4,000만원으로 확대하는 조세특례제한법 개정안을 추진해왔으나 21대·22대 국회에서 여러 차례 부결되어 아직 시행되지 않음. 2026년 하반기 세법개정안 발표에서 재논의될 가능성 있음.",
+      "proposed_general_limit_krw": 5000000,
+      "proposed_low_income_limit_krw": 10000000,
+      "status": "국회 미통과",
+      "as_of": "2026-07-11"
+    }
   },
   "national_income_tax_brackets": {
     "verification_status": "미검증 초안 — 해당 연도 종합소득세 누진세율표는 세법 개정 여부를 국세청 최신 고시로 재확인 필요 (skills.md 2절과 동일한 성격의 불확실성)",

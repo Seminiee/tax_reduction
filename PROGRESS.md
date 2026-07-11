@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~13 전부 완료, 프로덕션 재배포 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
-- **마지막 업데이트**: 2026-07-11 (Stage 13 완료, 프로덕션 재배포 완료)
+- **다음 작업**: 없음 (Stage 0~14 전부 완료, 로컬 검증까지 완료). **프로덕션 재배포는 사용자 확인 후 별도 진행**(요청받은 대로 재배포하지 않음)
+- **마지막 업데이트**: 2026-07-11 (Stage 14 완료, 로컬 검증까지만 진행)
 
 ## 스테이지 체크리스트
 
@@ -24,6 +24,7 @@
 | 11 | final-security-and-mobile-check (rate-limit/모바일/npm audit/최종 배포) | done |
 | 12 | dividend-quantity-input-modes (수량/총매수금액 입력모드, resolveDividendQuantity) | done |
 | 13 | deploy-and-verify (rate-limit/모바일 재확인, 최종 배포) | done |
+| 14 | chatbot-ui-redesign-and-fact-fix (ISA 한도 사실관계 수정 + 하단 바 UI) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -190,5 +191,19 @@
 - `npm run build`/`npm run lint`/`npm run test`(68개, 스모크 5개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
 - 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/dividend`에서 수량모드(260주)와 총매수금액모드(3,000만원→260주 내림)의 헤드라인이 완전히 동일함을 재확인(₩29,900,000, 260주). AI 자연어 입력 "코카콜라 300주 보유..." → 수량모드로 정상 전환, "나스닥 100 ETF 11만5천원에 3천만원어치..." → 총매수금액모드로 정상 전환되며 260주로 정확히 도출됨을 실제 API로 확인. 챗봇에게 "지금 실제로 매수되는 금액이 얼마예요?"라고 물었을 때 "29,900,000원이며 260주만 매수 가능해서 내림 처리됐다"는 정확한 이유까지 포함한 응답을 확인(resolveDividendQuantity의 내림 로직을 정확히 반영). 이어서 `/dividend`→`/`→`/trade`→`/dividend` 3페이지 왕복 시 챗봇 대화 1건이 끝까지 유지됨을 확인. 콘솔 에러 없음.
 - feature_list.json Stage 13 done 처리, 커밋.
+
+### 2026-07-11 (Stage 14)
+- feature_list.json에 Stage 14(chatbot-ui-redesign-and-fact-fix) 신규 추가(0~13 미변경).
+- **A. 사실관계 수정(근본 원인 수정)**: 그동안 챗봇이 "ISA 비과세 한도가 정확히 얼마냐"는 질문에 "자료마다 상충해 확인이 필요하다"고 얼버무린 원인을 찾음 — `config/tax-rules.json`의 실제 값(200만원/400만원)은 이미 맞았는데, 시스템 프롬프트가 이를 500만원/1,000만원 확대 "추진안"(국회 미통과)과 뒤섞어 "상충"으로 취급하고 있었음.
+  - config/tax-rules.json: `isa_account.types` 각 항목에 `verified: true` 추가, `isa_account.pending_legislation` 객체 신규 추가(확대안 설명/제안 금액/status: "국회 미통과"/as_of: 2026-07-11).
+  - skills.md: 2절 "확인 필요 항목"에서 ISA 비과세 한도 항목 제거, 1절 근처에 "확정 시행 기준(200만/400만) vs 미통과 추진안(500만/1000만) 절대 혼동 금지" 명시.
+  - lib/ai/chat-with-tax-assistant.ts의 `CHAT_SYSTEM_PROMPT`를 v2로 갱신(실제 코드): [답변 근거]에 확정 vs 추진안 구분 문구 추가, [확인 필요 항목]에서 ISA 한도 제거(외국납부세액 선환급/배당소득 분리과세 개편 2개만 유지), 신규 [추진 중인 세법 개정안 질문 대응] 규칙 추가(7월 말 세법개정안 발표 맥락 언급 허용하되 시행 여부/시점 단정 금지).
+  - PROMPTS.md: 챗봇 시스템 프롬프트 "v2" 섹션 신규 추가(v1 원문은 이력으로 보존), v1의 예시 응답 2번(ISA 한도 "확인 필요")에 "v1 기준 — Stage 14에서 수정됨" 주석 추가, v2 검증용 실제 응답 예시 2건 신규 추가.
+  - 단위테스트: 확인 필요 항목 it.each에서 ISA 한도 케이스 제거(2개만 유지), "vs 500만원" 같은 상충 표현이 프롬프트에 없는지 + "일반형 200만원, 서민형/농어민형 400만원이 현재 확정 시행 기준" 문구가 포함되는지 확인하는 신규 테스트 2건 추가 — 전부 통과.
+  - `lib/ai/chat-with-tax-assistant.smoke.test.ts`: 기존에 ISA 한도 질문이 "확인 필요"라고 답하는지 확인하던(이제는 틀린 기대값) 테스트를 "200만/400만으로 정확히 답하는지" + "500만원 확대 질문엔 국회 미통과로 안내하는지" 검증으로 교체, 외국납부세액 선환급 확인 필요 테스트는 별도로 유지. `RUN_AI_SMOKE_TEST=1`로 실제 API 호출해 5개 전부 통과 확인. `npx tsx`로 실제 응답 원문도 캡처해 PROMPTS.md에 기록.
+- **B. 챗봇 UI 재설계**: `components/chat/ChatPanel.tsx`/`ChatPanel.module.css`를 우하단 원형 버튼+슬라이드업 패널 구조에서 화면 하단 고정 가로 바로 전면 재설계. collapsed 상태는 얇은 입력 바(아이콘+입력창+전송 버튼, 높이 약 56~64px)만 항상 보이고, 입력창 포커스나 메시지 전송 시 `isExpanded` 상태로 전환되어 위로 대화 히스토리 영역(`max-height: 50vh`, 스크롤 가능)이 펼쳐짐. 헤더의 "접기 ▾" 버튼으로 다시 collapsed로 되돌아가되 `ChatContext`의 대화 상태는 그대로 유지(Stage 7의 페이지 이동 시 히스토리 유지 메커니즘 자체는 변경하지 않음). 색상은 Stage 7에서 정한 슬레이트/네이비 중립색(#0f172a, #1e293b, #f1f5f9, #e2e8f0) 그대로 유지. `app/layout.tsx`의 `{children}` wrapper에 `pb-20`(80px) 추가해 collapsed 바가 페이지 하단 콘텐츠를 가리지 않게 함. UI_SPEC.md에 "8. Stage 14 갱신" 절 추가(7절의 위치 설명을 대체).
+- `npm run build`/`npm run lint`/`npm run test`(69개, 스모크 7개 스킵) 모두 통과.
+- 로컬 브라우저 검증(Playwright): `/`에서 collapsed→포커스 시 expand→접기 버튼으로 collapse 확인, 메시지 전송 시 자동 expand 및 "ISA 비과세 한도가 얼마예요?" 질문에 200만원/400만원을 확정 답변하고 500만원/1,000만원은 "국회 통과 전 추진안"으로 정확히 구분하는 응답 확인. `/`→`/trade`→`/dividend` 이동 시마다 입력창 포커스로 expand해 대화 1건이 계속 유지됨을 확인. 375px 모바일에서 collapsed 상태가 콘텐츠를 가리지 않음(스크롤 최하단에서 disclaimer 완전히 노출 확인)과 expanded 상태가 뷰포트의 약 45%(364px/812px)만 차지해 화면을 과하게 가리지 않음을 확인. 콘솔 에러 없음.
+- feature_list.json Stage 14 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

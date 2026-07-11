@@ -8,14 +8,16 @@ const MAX_MESSAGE_LENGTH = 1000;
 const FALLBACK_MESSAGE = "지금은 챗봇을 쓸 수 없어요. 잠시 후 다시 시도해 주세요.";
 
 /**
- * Stage 7: app/layout.tsx에서 렌더링되는 공유 챗봇. 어느 도구 페이지(/  또는 /trade)에
- * 있든 동일한 컴포넌트가 유지되며, 대화 히스토리는 ChatContext(React Context)에 보관되므로
- * 페이지 이동으로 리마운트되어도 초기화되지 않는다. 색상은 두 도구(블루/그린)와 무관한
- * 슬레이트/네이비 중립색(ChatPanel.module.css)을 사용한다.
+ * Stage 14: 우하단 원형 버튼+슬라이드업 패널 구조를 없애고, 화면 하단에 항상 고정된
+ * 가로 바 형태로 재설계했다. 기본(collapsed) 상태는 얇은 입력 바만 보이고, 입력창에
+ * 포커스하거나 메시지를 보내면 위로 대화 히스토리 영역이 펼쳐진다(최대 50vh, 스크롤 가능).
+ * 접어도 대화 자체는 ChatContext에 그대로 남는다 — Stage 7의 페이지 이동 시 히스토리
+ * 유지 메커니즘은 이 재설계와 무관하게 그대로다. 색상은 Stage 7에서 정한 세 도구(블루/
+ * 그린/앰버) 색과 무관한 슬레이트/네이비 중립색을 그대로 유지한다.
  */
 export function ChatPanel() {
   const { messages, setMessages, currentSimulation } = useChatContext();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -28,6 +30,7 @@ export function ChatPanel() {
       return;
     }
 
+    setIsExpanded(true);
     const nextMessages = [...messages, { role: "user" as const, content: text }];
     setMessages(nextMessages);
     setInput("");
@@ -57,17 +60,17 @@ export function ChatPanel() {
 
   return (
     <div className={styles.root}>
-      {isOpen && (
-        <div className={styles.panel}>
+      {isExpanded && (
+        <div className={styles.historyPanel}>
           <div className={styles.header}>
             <span>세금 Q&amp;A 챗봇</span>
             <button
               type="button"
-              className={styles.closeButton}
-              onClick={() => setIsOpen(false)}
-              aria-label="챗봇 닫기"
+              className={styles.collapseButton}
+              onClick={() => setIsExpanded(false)}
+              aria-label="챗봇 접기"
             >
-              ✕
+              접기 ▾
             </button>
           </div>
           <div className={styles.disclaimer}>
@@ -90,32 +93,41 @@ export function ChatPanel() {
             {isLoading && <div className={styles.bubbleAssistant}>답변 작성 중...</div>}
           </div>
           {errorMessage && <div className={styles.errorNote}>{errorMessage}</div>}
-          <div className={styles.inputRow}>
-            <input
-              type="text"
-              className={styles.input}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSend();
-              }}
-              placeholder="세금 관련 질문을 입력하세요"
-              maxLength={MAX_MESSAGE_LENGTH}
-            />
-            <button
-              type="button"
-              className={styles.sendButton}
-              onClick={handleSend}
-              disabled={isLoading || !input.trim()}
-            >
-              전송
-            </button>
-          </div>
         </div>
       )}
-      <button type="button" className={styles.launcher} onClick={() => setIsOpen((v) => !v)}>
-        {isOpen ? "닫기" : "세금 Q&A 챗봇"}
-      </button>
+      <div className={styles.inputBar}>
+        <span className={styles.icon} aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 4h16v12H7l-3 3V4z"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <input
+          type="text"
+          className={styles.input}
+          value={input}
+          onFocus={() => setIsExpanded(true)}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSend();
+          }}
+          placeholder="세금 관련 질문을 입력하세요"
+          maxLength={MAX_MESSAGE_LENGTH}
+        />
+        <button
+          type="button"
+          className={styles.sendButton}
+          onClick={handleSend}
+          disabled={isLoading || !input.trim()}
+        >
+          전송
+        </button>
+      </div>
     </div>
   );
 }

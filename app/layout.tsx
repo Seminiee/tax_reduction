@@ -33,7 +33,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ChatProvider>
           <SiteNav />
-          {children}
+          {/* Stage 14: 챗봇이 하단 고정 바로 바뀌면서 collapsed 상태(약 56~64px)가
+              페이지 콘텐츠 하단을 가리지 않도록 여유 패딩을 둔다. */}
+          <div className="flex-1 pb-20">{children}</div>
           <ChatPanel />
         </ChatProvider>
       </body>

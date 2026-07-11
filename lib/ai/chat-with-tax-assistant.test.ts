@@ -186,7 +186,6 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
   });
 
   it.each([
-    ["ISA 비과세 한도가 정확히 얼마예요? 200만원 맞아요?", "ISA 비과세 한도의 정확한 금액"],
     ["외국납부세액 선환급 폐지가 실제로 시행됐나요?", "외국납부세액 선환급 폐지"],
     ["배당소득 분리과세 개편이 일반계좌 배당주에도 영향 있나요?", "배당소득 분리과세 세율 개편"],
   ])(
@@ -203,6 +202,33 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
       );
     }
   );
+
+  it("Stage 14: ISA 비과세 한도는 더 이상 확인 필요 항목이 아니고 확정 시행 기준으로 답하도록 지시한다", async () => {
+    mockReply("일반형은 200만원, 서민형/농어민형은 400만원이 현재 확정 시행 기준이에요.");
+
+    await chatWithTaxAssistant([
+      { role: "user", content: "일반형이랑 서민형 ISA 비과세 한도가 정확히 얼마예요?" },
+    ]);
+
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.system).not.toContain("ISA 비과세 한도의 정확한 금액");
+    expect(params.system).not.toContain("vs 500만원");
+    expect(params.system).toContain(
+      "일반형 200만원, 서민형/농어민형 400만원이 현재 확정 시행 기준"
+    );
+  });
+
+  it("Stage 14: 500만원/1000만원 확대안 질문에는 국회 미통과 추진안이라고 안내하도록 지시한다", async () => {
+    mockReply("아직 국회를 통과하지 않은 추진안이라 시행 여부와 시점이 확정되지 않았어요.");
+
+    await chatWithTaxAssistant([
+      { role: "user", content: "ISA 비과세 한도가 500만원으로 확대된다던데 언제 되나요?" },
+    ]);
+
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.system).toContain("추진 중인 세법 개정안 질문 대응");
+    expect(params.system).toContain("아직 국회를 통과하지 않았으며, 시행 여부와 구체적 시점은 확정되지 않았다");
+  });
 
   it("범위 밖 질문에도 동일한 시스템 프롬프트(범위 안내 지시 포함)로 호출한다", async () => {
     mockReply("죄송하지만 이 챗봇은 해외주식/ISA 세금 관련 질문만 답변할 수 있어요.");
