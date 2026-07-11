@@ -53,6 +53,37 @@ describe("otherFinancialIncomeKrw로 종합과세 대상이 되는 케이스", (
   });
 });
 
+describe("otherFinancialIncomeKrw=0이어도 배당금 단독으로 종합과세 대상이 되는 케이스 (Stage 19)", () => {
+  it("otherFinancialIncomeKrw를 아예 넘기지 않아도(0) 배당금 자체가 기준(2,000만원)을 넘으면 종합과세가 트리거된다", () => {
+    const result = calculateDividend({
+      stockName: "리얼티인컴",
+      quantity: 300,
+      dividendPerShareKrw: 100_000,
+      isaType: "general",
+    });
+
+    expect(result.totalDividendKrw).toBe(30_000_000);
+    expect(result.isComprehensiveTaxationTriggered).toBe(true);
+    expect(result.marginalTaxRateApplied).toBeCloseTo(0.15, 6);
+    expect(result.generalDividendTaxKrw).toBeCloseTo(4_580_000, 2);
+    expect(result.isaDividendTaxKrw).toBeCloseTo(2_772_000, 2);
+    expect(result.taxSavingKrw).toBeCloseTo(1_808_000, 2);
+  });
+
+  it("otherFinancialIncomeKrw를 명시적으로 0으로 넘겨도 동일하게 트리거된다", () => {
+    const result = calculateDividend({
+      stockName: "리얼티인컴",
+      quantity: 300,
+      dividendPerShareKrw: 100_000,
+      isaType: "general",
+      otherFinancialIncomeKrw: 0,
+    });
+
+    expect(result.isComprehensiveTaxationTriggered).toBe(true);
+    expect(result.marginalTaxRateApplied).toBeCloseTo(0.15, 6);
+  });
+});
+
 describe("일반계좌가 더 유리한 케이스가 존재하는지 검증", () => {
   it("한계세율이 최고 구간(45%)까지 올라가도 일반계좌 세금이 ISA보다 낮아지지 않는다", () => {
     // 일반계좌의 최저 실효세율(현지 원천징수 15%)이 ISA의 초과분 분리과세율(9.9%)보다

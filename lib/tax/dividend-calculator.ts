@@ -40,10 +40,13 @@ export interface DividendCalculatorResult {
  * 다루지 않는다(trade-calculator.ts와 다른 스코프). ISA 3년 의무유지를 가정하며,
  * ISA 쪽은 손익통산 없이 배당금 자체를 순이익으로 취급해 applyIsaSeparateTax를 그대로 재사용한다.
  *
- * otherFinancialIncomeKrw가 0(기본값)이면 이 배당금 단독으로 종합과세 여부를 판단하지 않고
- * 국내 배당소득세율(15.4%)을 그대로 한계세율 자리에 대입한다 — applyGeneralDividendTax의
- * 임계값 분리 계산식은 대입한 세율이 국내세율과 같을 때 대수적으로 정확히
- * totalDividendKrw * 15.4%로 귀결되므로, 로직을 중복 구현하지 않고도 "고정 15.4%"를 만족한다.
+ * 종합과세 트리거 여부는 otherFinancialIncomeKrw 값과 무관하게 totalDividendKrw +
+ * otherFinancialIncomeKrw가 comprehensive_taxation_threshold_krw(2,000만원)를 넘는지로만
+ * 판단한다 — otherFinancialIncomeKrw가 0이어도 배당금 단독으로 기준을 초과하면 종합과세가
+ * 정상적으로 트리거된다(Stage 19). 미트리거 시에는 국내 배당소득세율(15.4%)을 그대로 한계세율
+ * 자리에 대입한다 — applyGeneralDividendTax의 임계값 분리 계산식은 대입한 세율이 국내세율과
+ * 같을 때 대수적으로 정확히 totalDividendKrw * 15.4%로 귀결되므로, 로직을 중복 구현하지 않고도
+ * "고정 15.4%"를 만족한다.
  */
 export type DividendQuantityInput =
   | { mode: "quantity"; quantity: number; currentPriceKrw: number }
@@ -88,7 +91,7 @@ export function calculateDividend(input: DividendCalculatorInput): DividendCalcu
 
   const totalFinancialIncomeKrw = totalDividendKrw + otherFinancialIncomeKrw;
   const isComprehensiveTaxationTriggered =
-    otherFinancialIncomeKrw > 0 && totalFinancialIncomeKrw > COMPREHENSIVE_TAXATION_THRESHOLD_KRW;
+    totalFinancialIncomeKrw > COMPREHENSIVE_TAXATION_THRESHOLD_KRW;
   const marginalTaxRateApplied = isComprehensiveTaxationTriggered
     ? resolveMarginalIncomeTaxRate(totalFinancialIncomeKrw)
     : DOMESTIC_DIVIDEND_WITHHOLDING_RATE;

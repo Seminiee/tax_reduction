@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 18 (dividend-simplify — /dividend에서 다른 금융소득 고급설정 UI 제거, otherFinancialIncomeKrw 항상 0 고정). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-11 (Stage 18 완료)
+- **완료**: Stage 19 (dividend-comprehensive-tax-fix — otherFinancialIncomeKrw=0이어도 배당금 단독으로 종합과세 기준 초과 시 정상 트리거되도록 수정). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-11 (Stage 19 완료)
 
 ## 스테이지 체크리스트
 
@@ -29,6 +29,7 @@
 | 16 | chatbot-scope-eligibility (ISA 가입 자격 요건 챗봇 답변 범위 추가) | done |
 | 17 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 18 | dividend-simplify (다른 금융소득 고급설정 UI 제거) | done |
+| 19 | dividend-comprehensive-tax-fix (배당금 단독 종합과세 트리거 수정) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -248,5 +249,16 @@
 - `npm run test`(71개 통과, 스모크 9개 스킵 — `dividend-calculator.test.ts` 10개 전부 포함해 그대로 통과), `npm run lint`, `npm run build` 모두 클린.
 - 로컬 dev 서버 + Playwright로 `/dividend` 확인: 고급설정 섹션/버튼 완전히 사라짐, 새 안내문구 노출 확인, AI 자연어 입력에 "리얼티인컴 250주 보유, 주가 6만원, 주당 배당금 1,000원" 입력 시 실제 Anthropic API 호출로 종목명/수량/현재주가/주당배당금 4개 필드가 정확히 채워짐(총매수금액 ₩15,000,000 자동 계산) 확인.
 - feature_list.json Stage 18 done 처리, 커밋 예정. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-11 (Stage 19)
+- feature_list.json에 Stage 19(dividend-comprehensive-tax-fix) 신규 추가(0~18 미변경). 마지막 스테이지가 18로 확정되어 있어 번호 공백 없이 진행.
+- **버그 원인**: Stage 18에서 `otherFinancialIncomeKrw`를 UI에서 제거하고 항상 0으로 고정했는데, `lib/tax/dividend-calculator.ts`의 `isComprehensiveTaxationTriggered = otherFinancialIncomeKrw > 0 && totalFinancialIncomeKrw > COMPREHENSIVE_TAXATION_THRESHOLD_KRW` 조건식이 `otherFinancialIncomeKrw > 0`을 전제조건으로 두고 있어, 배당금 자체가 2,000만원을 아무리 넘어도 종합과세 분기가 영구히 비활성화되는 부작용이 있었음(Stage 18 완료 보고 시 사용자에게 사전 고지했던 그 이슈).
+- **수정**: 조건식을 `isComprehensiveTaxationTriggered = totalFinancialIncomeKrw > COMPREHENSIVE_TAXATION_THRESHOLD_KRW`로 변경(`otherFinancialIncomeKrw > 0 &&` 제거). `totalFinancialIncomeKrw = totalDividendKrw + otherFinancialIncomeKrw`는 그대로이므로 otherFinancialIncomeKrw가 0이어도 totalDividendKrw 단독으로 기준을 넘으면 정상적으로 트리거된다. 함수 시그니처는 미변경.
+- 신규 단위테스트 2건 추가(기존 테스트 전부 유지): `otherFinancialIncomeKrw`를 아예 넘기지 않은 케이스와 명시적으로 0을 넘긴 케이스 각각에서, 300주 × 주당배당금 100,000원(총 배당금 3,000만원) 시나리오가 종합과세로 정상 트리거되고 한계세율 15%(`resolveMarginalIncomeTaxRate` 브래킷상 14,000,001~50,000,000원 구간)가 적용됨을 확인.
+- skills.md 7절 문구를 사용자가 요청한 대로 "배당금 자체가 2,000만원을 넘으면 다른 금융소득이 0이어도 종합과세 로직이 정상적으로 트리거된다"로 갱신(수정된 실제 동작과 일치).
+- `lib/ai/chat-with-tax-assistant.ts`의 `buildCurrentSimulationContext` dividend 분기에 남아있던 "배당금 외 다른 금융소득은 고려하지 않으므로 항상 국내 배당소득세율(15.4%) 기준으로 계산됩니다"(Stage 18에서 작성했으나 이번 수정으로 사실과 어긋나게 된 문장)를 "배당금 자체가 기준(2,000만원)을 넘으면 종합과세는 정상적으로 트리거되어 초과분에 한계세율이 적용됩니다"로 정정. PROMPTS.md에 배당금 계산기 템플릿 v4 섹션 신규 추가(v1/v2/v3 원문 보존)로 이 변경을 문서화.
+- `npm run test`(73개 통과 — 기존 71개 + 신규 2개, 스모크 9개 스킵. `dividend-calculator.test.ts` 기존 10개 케이스 포함 전부 그대로 통과), `npm run lint`, `npm run build` 모두 클린.
+- 로컬 dev 서버 + Playwright로 실제 확인: AI 자연어 입력("리얼티인컴 300주 보유, 주가 5만원, 주당 배당금 100,000원")으로 배당금 3,000만원 단독 시나리오를 실행한 결과, 일반계좌 세금이 "₩4,580,000 (금융소득종합과세 대상, 한계세율 15% 적용)"으로 정확히 표시됨(수정 전이었다면 otherFinancialIncomeKrw=0이라 종합과세 미트리거로 "₩4,620,000(현지 원천징수 + 국내 배당소득세 15.4% 기준, 30,000,000×15.4%)"로 잘못 표시됐을 것). ISA 세금 ₩2,772,000, 세금이득 ₩1,808,000 — 신규 단위테스트 기대값과 완전히 일치.
+- feature_list.json Stage 19 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

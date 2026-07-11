@@ -250,6 +250,18 @@
         "otherFinancialIncomeKrw UI 입력을 전제로 한 스모크테스트/컴포넌트 정리, lib/tax 레벨 테스트는 그대로 유지"
       ],
       "done_criteria": "/dividend에 고급설정 UI 없음 + 안내문구 노출 + AI입력이 4개 필드 기준으로 동작 + 기존 전체 테스트(dividend-calculator.test.ts 포함) 그대로 통과 (재배포는 사용자 확인 후 별도 진행)"
+    },
+    {
+      "id": 19,
+      "name": "dividend-comprehensive-tax-fix",
+      "status": "done",
+      "tasks": [
+        "lib/tax/dividend-calculator.ts의 isComprehensiveTaxationTriggered 조건식 수정: otherFinancialIncomeKrw > 0 전제조건 제거, totalDividendKrw + otherFinancialIncomeKrw > comprehensive_taxation_threshold_krw만으로 판단(함수 시그니처 미변경)",
+        "신규 단위테스트 추가(기존 테스트 유지): otherFinancialIncomeKrw=0, 배당금 단독 2,000만원 초과 시 종합과세 트리거 + 마진세율 정확성 확인",
+        "skills.md 7절 문구를 수정된 실제 동작에 맞게 재작성",
+        "AI 파싱/챗봇 컨텍스트에 이전 트리거 조건(otherFinancialIncomeKrw > 0 전제)을 가정한 문구가 남아있는지 확인/정리"
+      ],
+      "done_criteria": "신규 테스트 통과 + 기존 전체 테스트(otherFinancialIncomeKrw 관련 기존 케이스 포함) 그대로 통과, 배당 3,000만원 단독 시나리오를 브라우저에서 확인 시 종합과세 마진세율 적용 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }
