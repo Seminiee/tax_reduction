@@ -156,6 +156,19 @@
         "배포 URL에서 실제 검증: 세 페이지(/,/trade,/dividend) 각각 슬라이더+AI입력+계산, 세 페이지를 오가는 챗봇 히스토리 유지, 5개 API 라우트 전부 429 반환"
       ],
       "done_criteria": "5개 라우트 rate-limit 동일 설정 확정 + npm audit 심각한 취약점 없음 + /trade·/dividend 모바일 깨짐 없음 + 프로덕션 배포 완료 + 배포 URL에서 세 도구 전체 플로우와 429 동작 실제 확인"
+    },
+    {
+      "id": 12,
+      "name": "dividend-quantity-input-modes",
+      "status": "done",
+      "tasks": [
+        "lib/tax/dividend-calculator.ts에 resolveDividendQuantity 순수함수 추가 (수량 직접입력 / 총매수금액 입력 두 모드, 나머지 내림 처리), calculateDividend 본체는 미변경, 최소 4개 단위테스트(invariant 포함)",
+        "app/dividend UI: 현재 주가 입력 필드 추가, 입력모드 2단 토글(수량/총매수금액), 모드별 슬라이더, 헤드라인에 수량+실제매수금액 항상 노출, 나머지 발생 시 안내 문구",
+        "app/api/parse-dividend 스키마에 currentPriceKrw/totalPurchaseAmountKrw 선택 필드 추가, 시스템 프롬프트 v2로 두 입력 방식 분기 규칙 명시, PROMPTS.md에 v2 섹션 추가(v1 유지)",
+        "ChatCurrentSimulation의 dividend 분기에 currentPriceKrw/입력모드/actualInvestedAmountKrw 필드 추가, buildCurrentSimulationContext 갱신, PROMPTS.md 동적 템플릿 v2 추가",
+        "skills.md 7절에 입력모드(내림 처리, 두 모드 결과 동일성 보장) 스코프 추가"
+      ],
+      "done_criteria": "/dividend에서 두 입력 모드 모두 슬라이더로 즉시 재계산 + 동일 조건이면 두 모드 결과가 정확히 일치 + 기존 전체 테스트와 신규 테스트 통과 + AI입력으로 수량/총매수금액 각각 올바른 모드로 채워짐 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

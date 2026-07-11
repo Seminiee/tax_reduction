@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { calculateDividend } from "@/lib/tax/dividend-calculator";
+import { calculateDividend, resolveDividendQuantity } from "@/lib/tax/dividend-calculator";
 import { useChatContext } from "@/components/chat/ChatContext";
 import { IsaTypeToggle, type TwoWayIsaType } from "./IsaTypeToggle";
-import { ScenarioForm } from "./ScenarioForm";
+import { ScenarioForm, type QuantityInputMode } from "./ScenarioForm";
 import { ResultPanel } from "./ResultPanel";
 import { NaturalLanguageInputCard } from "./NaturalLanguageInputCard";
 import { Disclaimer } from "./Disclaimer";
@@ -12,20 +12,34 @@ import { Disclaimer } from "./Disclaimer";
 export function DividendCalculator() {
   const [stockName, setStockName] = useState("코카콜라");
   const [dividendPerShareKrw, setDividendPerShareKrw] = useState(2_000);
+  const [currentPriceKrw, setCurrentPriceKrw] = useState(65_000);
+  const [inputMode, setInputMode] = useState<QuantityInputMode>("quantity");
   const [quantity, setQuantity] = useState(100);
+  const [totalPurchaseAmountKrw, setTotalPurchaseAmountKrw] = useState(10_000_000);
   const [isaType, setIsaType] = useState<TwoWayIsaType>("general");
   const [otherFinancialIncomeKrw, setOtherFinancialIncomeKrw] = useState(0);
+
+  const quantityResolution = useMemo(
+    () =>
+      resolveDividendQuantity(
+        inputMode === "quantity"
+          ? { mode: "quantity", quantity, currentPriceKrw }
+          : { mode: "amount", totalPurchaseAmountKrw, currentPriceKrw }
+      ),
+    [inputMode, quantity, totalPurchaseAmountKrw, currentPriceKrw]
+  );
+  const resolvedQuantity = quantityResolution.quantity;
 
   const result = useMemo(
     () =>
       calculateDividend({
         stockName,
-        quantity,
+        quantity: resolvedQuantity,
         dividendPerShareKrw,
         isaType,
         otherFinancialIncomeKrw,
       }),
-    [stockName, quantity, dividendPerShareKrw, isaType, otherFinancialIncomeKrw]
+    [stockName, resolvedQuantity, dividendPerShareKrw, isaType, otherFinancialIncomeKrw]
   );
 
   const handleApplyNaturalLanguage = useCallback(async (text: string) => {
@@ -41,8 +55,18 @@ export function DividendCalculator() {
 
     setStockName(data.stockName);
     setDividendPerShareKrw(data.dividendPerShareKrw);
-    setQuantity(Math.max(1, Math.round(data.quantity)));
     setOtherFinancialIncomeKrw(data.otherFinancialIncomeKrw);
+    if (data.currentPriceKrw > 0) {
+      setCurrentPriceKrw(data.currentPriceKrw);
+    }
+    // AI는 사용자가 말한 쪽(수량 또는 총매수금액) 하나만 채우므로, 채워진 쪽으로 입력모드를 맞춘다.
+    if (data.totalPurchaseAmountKrw > 0) {
+      setInputMode("amount");
+      setTotalPurchaseAmountKrw(data.totalPurchaseAmountKrw);
+    } else if (data.quantity > 0) {
+      setInputMode("quantity");
+      setQuantity(Math.max(1, Math.round(data.quantity)));
+    }
   }, []);
 
   const { setCurrentSimulation } = useChatContext();
@@ -52,8 +76,11 @@ export function DividendCalculator() {
       kind: "dividend" as const,
       request: {
         stockName,
-        quantity,
+        quantity: resolvedQuantity,
         dividendPerShareKrw,
+        currentPriceKrw,
+        inputMode,
+        actualInvestedAmountKrw: quantityResolution.actualInvestedAmountKrw,
         isaType,
         otherFinancialIncomeKrw,
       },
@@ -69,7 +96,17 @@ export function DividendCalculator() {
         taxSavingKrw: result.taxSavingKrw,
       },
     }),
-    [stockName, quantity, dividendPerShareKrw, isaType, otherFinancialIncomeKrw, result]
+    [
+      stockName,
+      resolvedQuantity,
+      dividendPerShareKrw,
+      currentPriceKrw,
+      inputMode,
+      quantityResolution.actualInvestedAmountKrw,
+      isaType,
+      otherFinancialIncomeKrw,
+      result,
+    ]
   );
 
   // Stage 7의 공유 챗봇 컨텍스트에 이 도구의 최신 조건을 계속 밀어 넣는다.
@@ -96,14 +133,27 @@ export function DividendCalculator() {
               onStockNameChange={setStockName}
               dividendPerShareKrw={dividendPerShareKrw}
               onDividendPerShareKrwChange={setDividendPerShareKrw}
+              currentPriceKrw={currentPriceKrw}
+              onCurrentPriceKrwChange={setCurrentPriceKrw}
+              inputMode={inputMode}
+              onInputModeChange={setInputMode}
               quantity={quantity}
               onQuantityChange={setQuantity}
+              totalPurchaseAmountKrw={totalPurchaseAmountKrw}
+              onTotalPurchaseAmountKrwChange={setTotalPurchaseAmountKrw}
+              resolvedQuantity={quantityResolution.quantity}
+              actualInvestedAmountKrw={quantityResolution.actualInvestedAmountKrw}
+              requestedAmountKrw={quantityResolution.requestedAmountKrw}
               otherFinancialIncomeKrw={otherFinancialIncomeKrw}
               onOtherFinancialIncomeKrwChange={setOtherFinancialIncomeKrw}
             />
           </div>
 
-          <ResultPanel quantity={quantity} result={result} />
+          <ResultPanel
+            quantity={resolvedQuantity}
+            actualInvestedAmountKrw={quantityResolution.actualInvestedAmountKrw}
+            result={result}
+          />
         </main>
 
         <Disclaimer />

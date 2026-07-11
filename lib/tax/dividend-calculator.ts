@@ -45,6 +45,41 @@ export interface DividendCalculatorResult {
  * 임계값 분리 계산식은 대입한 세율이 국내세율과 같을 때 대수적으로 정확히
  * totalDividendKrw * 15.4%로 귀결되므로, 로직을 중복 구현하지 않고도 "고정 15.4%"를 만족한다.
  */
+export type DividendQuantityInput =
+  | { mode: "quantity"; quantity: number; currentPriceKrw: number }
+  | { mode: "amount"; totalPurchaseAmountKrw: number; currentPriceKrw: number };
+
+export interface DividendQuantityResult {
+  quantity: number;
+  actualInvestedAmountKrw: number;
+  /** "amount" 모드에서 사용자가 입력한 원래 금액. "quantity" 모드에서는 없음. */
+  requestedAmountKrw?: number;
+}
+
+/**
+ * 수량 직접입력 또는 총 매수금액 입력 중 하나로부터 배당 계산에 쓸 실제 수량을 결정하는
+ * 순수함수. "amount" 모드는 currentPriceKrw로 나눈 몫만큼만 실제로 살 수 있으므로(나머지는
+ * 투입되지 않음) Math.floor로 내림 처리하고, 그 결과 실제 투입 금액(actualInvestedAmountKrw)이
+ * 사용자가 입력한 금액(requestedAmountKrw)보다 작아질 수 있다 — 이 함수는 그 차이를 그대로
+ * 노출할 뿐 숨기지 않는다. calculateDividend의 세금 계산 로직은 건드리지 않고, 그 앞단에서
+ * quantity를 결정해주는 역할만 한다.
+ */
+export function resolveDividendQuantity(input: DividendQuantityInput): DividendQuantityResult {
+  const { currentPriceKrw } = input;
+
+  if (input.mode === "quantity") {
+    const quantity = Math.max(0, Math.floor(input.quantity));
+    const actualInvestedAmountKrw = currentPriceKrw > 0 ? quantity * currentPriceKrw : 0;
+    return { quantity, actualInvestedAmountKrw };
+  }
+
+  const { totalPurchaseAmountKrw } = input;
+  const quantity =
+    currentPriceKrw > 0 ? Math.max(0, Math.floor(totalPurchaseAmountKrw / currentPriceKrw)) : 0;
+  const actualInvestedAmountKrw = quantity * currentPriceKrw;
+  return { quantity, actualInvestedAmountKrw, requestedAmountKrw: totalPurchaseAmountKrw };
+}
+
 export function calculateDividend(input: DividendCalculatorInput): DividendCalculatorResult {
   const { stockName, quantity, dividendPerShareKrw, isaType, otherFinancialIncomeKrw = 0 } = input;
 

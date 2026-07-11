@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDividend } from "./dividend-calculator";
+import { calculateDividend, resolveDividendQuantity } from "./dividend-calculator";
 
 describe("비과세 한도 이내 케이스", () => {
   it("ISA는 세금이 없고, 일반계좌는 15.4% 고정으로 과세된다", () => {
@@ -86,5 +86,100 @@ describe("경계값: quantity가 0이면 배당금도 0", () => {
     expect(result.taxSavingKrw).toBe(0);
     expect(result.generalNetReceivedKrw).toBe(0);
     expect(result.isaNetReceivedKrw).toBe(0);
+  });
+});
+
+describe("resolveDividendQuantity — quantity 모드", () => {
+  it("수량과 주가로 실제 투입금액을 그대로 곱해서 계산한다", () => {
+    const result = resolveDividendQuantity({
+      mode: "quantity",
+      quantity: 100,
+      currentPriceKrw: 115_000,
+    });
+
+    expect(result.quantity).toBe(100);
+    expect(result.actualInvestedAmountKrw).toBe(11_500_000);
+    expect(result.requestedAmountKrw).toBeUndefined();
+  });
+});
+
+describe("resolveDividendQuantity — amount 모드 (나누어떨어지는 케이스)", () => {
+  it("나머지가 없으면 요청금액과 실제투입금액이 완전히 같다", () => {
+    const result = resolveDividendQuantity({
+      mode: "amount",
+      totalPurchaseAmountKrw: 11_500_000,
+      currentPriceKrw: 115_000,
+    });
+
+    expect(result.quantity).toBe(100);
+    expect(result.actualInvestedAmountKrw).toBe(11_500_000);
+    expect(result.requestedAmountKrw).toBe(11_500_000);
+  });
+});
+
+describe("resolveDividendQuantity — amount 모드 (나머지가 있는 케이스)", () => {
+  it("3,000만원 ÷ 115,000원은 260.8...주라 260주까지만 내림 처리되고, 차액이 그대로 드러난다", () => {
+    const result = resolveDividendQuantity({
+      mode: "amount",
+      totalPurchaseAmountKrw: 30_000_000,
+      currentPriceKrw: 115_000,
+    });
+
+    expect(result.quantity).toBe(260);
+    expect(result.actualInvestedAmountKrw).toBe(29_900_000);
+    expect(result.requestedAmountKrw).toBe(30_000_000);
+    expect(result.requestedAmountKrw! - result.actualInvestedAmountKrw).toBe(100_000);
+  });
+});
+
+describe("resolveDividendQuantity — 경계값 (주가가 0 이하)", () => {
+  it("주가가 0이면 어느 모드든 수량과 투입금액이 0이 된다", () => {
+    const quantityModeResult = resolveDividendQuantity({
+      mode: "quantity",
+      quantity: 100,
+      currentPriceKrw: 0,
+    });
+    const amountModeResult = resolveDividendQuantity({
+      mode: "amount",
+      totalPurchaseAmountKrw: 10_000_000,
+      currentPriceKrw: 0,
+    });
+
+    expect(quantityModeResult.actualInvestedAmountKrw).toBe(0);
+    expect(amountModeResult.quantity).toBe(0);
+    expect(amountModeResult.actualInvestedAmountKrw).toBe(0);
+    expect(amountModeResult.requestedAmountKrw).toBe(10_000_000);
+  });
+});
+
+describe("resolveDividendQuantity — 두 모드의 invariant: 동일한 실제 투자 조건이면 최종 결과가 완전히 같다", () => {
+  it("quantity 모드로 260주를 직접 넣으나, amount 모드로 3,000만원을 넣어 260주로 내림되나 계산 결과가 동일하다", () => {
+    const currentPriceKrw = 115_000;
+
+    const viaQuantity = resolveDividendQuantity({
+      mode: "quantity",
+      quantity: 260,
+      currentPriceKrw,
+    });
+    const viaAmount = resolveDividendQuantity({
+      mode: "amount",
+      totalPurchaseAmountKrw: 30_000_000,
+      currentPriceKrw,
+    });
+
+    expect(viaQuantity.quantity).toBe(viaAmount.quantity);
+    expect(viaQuantity.actualInvestedAmountKrw).toBe(viaAmount.actualInvestedAmountKrw);
+
+    const dividendInput = {
+      stockName: "나스닥 100 ETF",
+      dividendPerShareKrw: 3_000,
+      isaType: "general" as const,
+      otherFinancialIncomeKrw: 0,
+    };
+
+    const resultViaQuantity = calculateDividend({ ...dividendInput, quantity: viaQuantity.quantity });
+    const resultViaAmount = calculateDividend({ ...dividendInput, quantity: viaAmount.quantity });
+
+    expect(resultViaQuantity).toEqual(resultViaAmount);
   });
 });

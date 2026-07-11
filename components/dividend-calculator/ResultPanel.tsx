@@ -2,10 +2,11 @@ import type { DividendCalculatorResult } from "@/lib/tax/dividend-calculator";
 
 interface ResultPanelProps {
   quantity: number;
+  actualInvestedAmountKrw: number;
   result: DividendCalculatorResult;
 }
 
-export function ResultPanel({ quantity, result }: ResultPanelProps) {
+export function ResultPanel({ quantity, actualInvestedAmountKrw, result }: ResultPanelProps) {
   const {
     stockName,
     totalDividendKrw,
@@ -26,8 +27,11 @@ export function ResultPanel({ quantity, result }: ResultPanelProps) {
     <div className="flex flex-col gap-6 h-full">
       <section className="flex flex-col justify-center bg-white border border-slate-200 rounded-3xl p-8 shadow-xl relative overflow-hidden">
         <p className="text-sm text-slate-500 font-bold mb-2">
-          {stockName || "종목"} {quantity.toLocaleString("ko-KR")}주 배당 (총 ₩
-          {Math.round(totalDividendKrw).toLocaleString("ko-KR")})
+          {stockName || "종목"} {quantity.toLocaleString("ko-KR")}주 (총 매수금액 약 ₩
+          {Math.round(actualInvestedAmountKrw).toLocaleString("ko-KR")}) 매수 시
+        </p>
+        <p className="text-xs text-slate-400 mb-2">
+          연 배당금 총 ₩{Math.round(totalDividendKrw).toLocaleString("ko-KR")}
         </p>
         {isGeneralBetter ? (
           <>

@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~11 전부 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
-- **마지막 업데이트**: 2026-07-11 (Stage 11 완료, 프로덕션 재배포 완료)
+- **다음 작업**: 없음 (Stage 0~12 전부 완료, 로컬 검증까지 완료). Stage 12는 코드 변경만 커밋된 상태 — **프로덕션 재배포는 사용자 확인 후 별도 진행**(요청받은 대로 재배포하지 않음)
+- **마지막 업데이트**: 2026-07-11 (Stage 12 완료, 로컬 검증까지만 진행)
 
 ## 스테이지 체크리스트
 
@@ -22,6 +22,7 @@
 | 9 | security-parity + final-qa (rate-limit 점검, npm audit, 최종 배포/검증) | done |
 | 10 | 배당금 계산기 (/dividend, rate-engine에 applyGeneralDividendTax 추가) | done |
 | 11 | final-security-and-mobile-check (rate-limit/모바일/npm audit/최종 배포) | done |
+| 12 | dividend-quantity-input-modes (수량/총매수금액 입력모드, resolveDividendQuantity) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -167,5 +168,17 @@
 - 프로덕션 rate-limit 실동작 검증: 5개 라우트 모두 반복 요청 시 429+Retry-After 확인. `/api/explain`은 정확히 10번째 요청까지 허용(400, 페이로드 무효화로 인한 응답이지만 rate-limit 게이트는 통과)되고 11번째부터 429가 뜨는 이상적인 사례를 확인함(rate-limit 검사가 body 파싱보다 먼저 실행되므로 무효 payload로도 카운트 테스트 가능). 나머지 라우트는 이번 세션 중 반복 테스트로 이미 direct 리밋에 걸려 있던 상태에서 429를 반환함을 확인 — 두 경우 모두 rate limiter가 정상 동작함을 보여주는 것으로, lib/rate-limit.ts 주석에 문서화된 "서버리스 인스턴스가 여러 개 뜨면 인스턴스마다 카운트가 분리될 수 있다"는 알려진 한계와 일치하는 결과.
 - 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/`에서 슬라이더+AI로 조건 채우기(애플 3000만원 7년 9%)+챗봇 질문 → 정확한 세후 금액 참조 응답 확인. `/trade`로 이동해도 챗봇 대화 1건 유지, 슬라이더+AI 파싱+챗봇 질문 → 절세액 정확히 참조하는 응답 확인. `/dividend`로 이동해도 대화 2건 유지, 슬라이더+AI 파싱+챗봇 질문 → 세금이득 정확히 참조하는 응답 확인(AI 파싱 결과와 챗봇 응답 수치가 일치: 코카콜라 300주 750,000원 배당, 세금이득 115,500원). 다시 `/`로 복귀해도 대화 3건(hold+trade+dividend) 전부 유지 확인. 콘솔 에러 없음.
 - feature_list.json Stage 11 done 처리, 커밋.
+
+### 2026-07-11 (Stage 12)
+- feature_list.json에 Stage 12(dividend-quantity-input-modes) 신규 추가(0~11 미변경). /dividend 관련 파일과 공유 타입(ChatCurrentSimulation의 dividend 분기)에 대한 최소 확장만 진행, 다른 도구는 건드리지 않음.
+- lib/tax/dividend-calculator.ts에 `resolveDividendQuantity` 순수함수 추가: "quantity"(수량 직접입력) / "amount"(총매수금액 입력) 두 모드를 union 타입으로 받는다. amount 모드는 `Math.floor(totalPurchaseAmountKrw / currentPriceKrw)`로 내림 처리하고 `actualInvestedAmountKrw`(재계산된 실제 투입 금액)를 `requestedAmountKrw`(사용자가 입력한 원래 금액)와 별도로 반환해 나머지 차액을 숨기지 않는다. `calculateDividend` 본체(applyGeneralDividendTax/applyIsaSeparateTax 호출부)는 전혀 건드리지 않고 그 앞단에서 quantity만 결정해주는 구조 유지. 단위테스트 5개(quantity 모드/amount 모드 나누어떨어짐/amount 모드 나머지 있음/경계값(주가 0 이하)/두 모드 invariant) 전부 통과.
+- app/dividend UI: ScenarioForm에 "현재 주가" 입력(app/trade 패턴 재사용), 입력모드 2단 토글("수량으로 입력"/"총 매수금액으로 입력", 기존 IsaTypeToggle과 동일한 세그먼트 버튼 스타일), 모드별 슬라이더(수량 모드는 기존 수량 슬라이더+"총 매수금액 약 ~" 참고문구, 금액 모드는 만원 단위 슬라이더+매수 가능 수량 문구+나머지 있을 때 안내 배너) 구현. DividendCalculator.tsx가 `resolveDividendQuantity`를 useMemo로 호출해 실제 계산에 쓸 수량을 도출하고, ResultPanel 헤드라인을 "{quantity}주 (총 매수금액 약 {actualInvestedAmountKrw}원) 매수 시" 형태로 통일(모드 무관하게 항상 노출). 슬라이더 조작마다 API 호출 없이 클라이언트에서 즉시 재계산(기존 패턴 유지).
+- app/api/parse-dividend 스키마에 `currentPriceKrw`, `totalPurchaseAmountKrw` 선택 필드 추가. 시스템 프롬프트를 v2로 갱신해 "300주"처럼 수량으로 언급하면 quantity만, "3천만원어치"처럼 금액으로 언급하면 totalPurchaseAmountKrw만 채우고 나머지는 0+assumedFields로 남기도록 명시(동시에 채우지 않음). isaType을 스키마에서 제외한 기존 결정은 유지.
+- lib/ai/chat-with-tax-assistant.ts: DividendSimulationContext의 request에 `currentPriceKrw`/`inputMode`/`actualInvestedAmountKrw` 필드 추가, buildCurrentSimulationContext의 dividend 템플릿을 갱신해 챗봇이 입력방식과 실제 투입금액까지 참조해 답할 수 있게 함.
+- PROMPTS.md: "1-C. 배당금 계산기 자연어 파싱"에 v1 원문은 그대로 두고 "v2" 하위섹션을 추가(새 시스템 프롬프트 원문 + 출력 스키마). 챗봇 동적 템플릿 섹션에도 배당금 계산기 템플릿 v2를 v1 뒤에 추가. 지원서 이력상 어떤 버전이 최종인지 헷갈리지 않도록 실제 코드가 쓰는 버전(v2)임을 명시.
+- skills.md 7절에 "수량 입력모드" 항목 추가: 내림 처리 이유, actualInvestedAmountKrw/requestedAmountKrw 차이를 UI/AI 응답에 그대로 노출한다는 원칙, 두 모드가 동일 수량에 도달하면 계산 결과가 완전히 같아야 한다는 invariant 명시.
+- `npm run build`/`npm run lint`/`npm run test`(68개, 스모크 5개 스킵) 모두 통과.
+- 로컬 브라우저 검증(Playwright): 수량모드 260주 vs 금액모드 3,000만원(→260주 내림, 요청자의 예시 그대로: 실제 매수 가능 금액 약 2,990만원) 두 경우가 헤드라인·세금이득(₩80,080)까지 완전히 동일함을 실제 화면에서 확인(invariant 실동작 검증). 금액모드에서 "입력하신 금액 중 실제 매수 가능한 금액은 약 ₩29,900,000(260주)입니다" 안내문구 정상 노출 확인. AI 자연어 입력으로 "코카콜라 300주 보유..." → quantity 모드 UI로 자동 전환, "나스닥 100 ETF 11만5천원에 3천만원어치..." → amount 모드 UI로 자동 전환되며 정확히 260주로 도출됨을 실제 Claude API 호출로 확인. 콘솔 에러 없음.
+- feature_list.json Stage 12 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
