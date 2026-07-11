@@ -142,6 +142,20 @@
         "app/layout.tsx SiteNav에 '배당금 계산기' → /dividend 링크 추가 (기존 두 링크 유지)"
       ],
       "done_criteria": "/dividend에서 슬라이더/AI입력/챗봇(공용) 전체 플로우 정상 동작 + 기존 전체 테스트(리팩터링 포함) + 신규 테스트 전부 통과 + /·/trade·/dividend 세 페이지를 오가도 챗봇 히스토리 유지 + /api/parse-dividend rate-limit 적용 상태로 배포"
+    },
+    {
+      "id": 11,
+      "name": "final-security-and-mobile-check",
+      "status": "done",
+      "tasks": [
+        "5개 API 라우트(/api/parse, /api/explain, /api/chat, /api/parse-trade, /api/parse-dividend) rate-limit 동일 설정 적용 점검, 누락 시 즉시 수정",
+        "npm audit 재실행 — Stage 10 이후 신규 의존성 심각한 취약점 확인",
+        "/trade, /dividend 모바일(375px) 반응형 점검 및 깨지는 부분 최소 수정",
+        "챗봇 플로팅 버튼/패널이 /trade, /dividend 테마색과 충돌 없이 중립색으로 노출되는지 확인",
+        "최종 프로덕션 재배포",
+        "배포 URL에서 실제 검증: 세 페이지(/,/trade,/dividend) 각각 슬라이더+AI입력+계산, 세 페이지를 오가는 챗봇 히스토리 유지, 5개 API 라우트 전부 429 반환"
+      ],
+      "done_criteria": "5개 라우트 rate-limit 동일 설정 확정 + npm audit 심각한 취약점 없음 + /trade·/dividend 모바일 깨짐 없음 + 프로덕션 배포 완료 + 배포 URL에서 세 도구 전체 플로우와 429 동작 실제 확인"
     }
   ]
 }

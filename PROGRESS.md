@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~10 전부 완료, 로컬 검증까지 완료. 프로덕션 재배포는 사용자 확인 후 별도 진행 예정 — Stage 9 패턴과 동일하게 재배포/최종 rate-limit 점검은 요청 시 진행)
-- **마지막 업데이트**: 2026-07-11 (Stage 10 완료)
+- **다음 작업**: 없음 (Stage 0~11 전부 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
+- **마지막 업데이트**: 2026-07-11 (Stage 11 완료, 프로덕션 재배포 완료)
 
 ## 스테이지 체크리스트
 
@@ -21,6 +21,7 @@
 | 8 | 매매차익 계산기 (/trade, rate-engine 리팩터링 + 신규 순수함수) | done |
 | 9 | security-parity + final-qa (rate-limit 점검, npm audit, 최종 배포/검증) | done |
 | 10 | 배당금 계산기 (/dividend, rate-engine에 applyGeneralDividendTax 추가) | done |
+| 11 | final-security-and-mobile-check (rate-limit/모바일/npm audit/최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -155,5 +156,16 @@
 - Playwright로 실제 브라우저 검증(로컬): `/dividend` 기본 렌더(콘솔 에러 없음, 200주 기준 세금 이득 계산 수기 검증과 일치), 수량 슬라이더 조작 시 즉시 재계산 확인(500주 기준 세금 이득 154,000원, 수기 계산과 일치), "다른 금융소득" 고급설정 펼치기/입력 확인, AI로 조건 채우기(삼성전자 200주, 배당금 1500원, 다른 금융소득 없음) 실제 Claude API로 정확히 파싱되어 폼 반영(otherFinancialIncomeKrw가 이전 입력값을 정확히 0으로 덮어씀) 확인, 플로팅 챗봇이 실제 계산 조건(세금 이득 46,200원 등)을 정확히 참조하는 응답 반환 확인, `/dividend`→`/`→`/trade`→`/dividend` 왕복 후에도 챗봇 대화 1건 유지 확인.
 - `npm run build`/`npm run lint`/`npm run test`(62개, 스모크 5개 스킵) 모두 통과.
 - feature_list.json Stage 10 done 처리, 커밋. **사용자 확인 없이 다음 단계(프로덕션 재배포/rate-limit 최종 점검)로 넘어가지 않음** — 다음 세션에서 재배포 요청 시 Stage 9와 동일한 패턴(rate-limit 목록 재확인 + npm audit + 배포 + 실제 브라우저 검증)으로 진행할 것.
+
+### 2026-07-11 (Stage 11)
+- feature_list.json에 Stage 11(final-security-and-mobile-check) 신규 추가(0~10 미변경).
+- rate-limit 점검: /api/parse, /api/explain, /api/chat, /api/parse-trade, /api/parse-dividend 5개 라우트 모두 `checkRateLimit(getClientIp(request))` 블록이 byte-identical하게(기본값 분당 10회, 429+Retry-After) 이미 적용되어 있음을 diff로 확인 — 수정 필요 없음.
+- `npm audit`: Stage 10 이후 package.json 변경 없음(git diff로 확인). 남은 취약점은 Stage 6/9에서 이미 검토한 postcss XSS 모더레이트 1건(next 내부 번들)뿐, high/critical 없음.
+- 모바일(375px) 반응형 점검을 /trade, /dividend에 Playwright로 실시: 콘솔 에러 없음, `document.documentElement.scrollWidth === clientWidth`로 수평 오버플로우 없음 확인, DOM 전체를 순회해 뷰포트를 벗어나는 요소 없음 확인. `fullPage: true` 스크린샷에서 챗봇 플로팅 버튼이 콘텐츠 중간에 "끼어 있는" 것처럼 보이는 현상을 처음 발견했으나, `boundingBox()`로 스크롤 전후 위치가 동일함을 확인해 이는 Playwright의 fullPage 스크린샷이 `position: fixed` 요소를 합성하는 과정에서 생기는 촬영 아티팩트일 뿐 실제로는 뷰포트 우하단에 정확히 고정됨을 확인함. ChatPanel.module.css에 이미 `@media (max-width: 480px)` 반응형 규칙(`width: calc(100vw - 24px)`)이 있어 좁은 화면에서도 챗봇 패널이 넘치지 않음. **실제로 깨진 부분이 없어 코드 수정은 하지 않음.**
+- 챗봇 플로팅 버튼/패널이 /trade(그린)·/dividend(앰버) 양쪽에서 모두 중립 슬레이트/네이비 색(#0f172a 등)으로 렌더링되어 각 도구 테마와 충돌 없음을 스크린샷으로 최종 확인.
+- `npm run build`/`npm run lint`/`npm run test`(62개, 스모크 5개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 rate-limit 실동작 검증: 5개 라우트 모두 반복 요청 시 429+Retry-After 확인. `/api/explain`은 정확히 10번째 요청까지 허용(400, 페이로드 무효화로 인한 응답이지만 rate-limit 게이트는 통과)되고 11번째부터 429가 뜨는 이상적인 사례를 확인함(rate-limit 검사가 body 파싱보다 먼저 실행되므로 무효 payload로도 카운트 테스트 가능). 나머지 라우트는 이번 세션 중 반복 테스트로 이미 direct 리밋에 걸려 있던 상태에서 429를 반환함을 확인 — 두 경우 모두 rate limiter가 정상 동작함을 보여주는 것으로, lib/rate-limit.ts 주석에 문서화된 "서버리스 인스턴스가 여러 개 뜨면 인스턴스마다 카운트가 분리될 수 있다"는 알려진 한계와 일치하는 결과.
+- 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/`에서 슬라이더+AI로 조건 채우기(애플 3000만원 7년 9%)+챗봇 질문 → 정확한 세후 금액 참조 응답 확인. `/trade`로 이동해도 챗봇 대화 1건 유지, 슬라이더+AI 파싱+챗봇 질문 → 절세액 정확히 참조하는 응답 확인. `/dividend`로 이동해도 대화 2건 유지, 슬라이더+AI 파싱+챗봇 질문 → 세금이득 정확히 참조하는 응답 확인(AI 파싱 결과와 챗봇 응답 수치가 일치: 코카콜라 300주 750,000원 배당, 세금이득 115,500원). 다시 `/`로 복귀해도 대화 3건(hold+trade+dividend) 전부 유지 확인. 콘솔 에러 없음.
+- feature_list.json Stage 11 done 처리, 커밋.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
