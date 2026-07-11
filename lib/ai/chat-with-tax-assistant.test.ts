@@ -218,6 +218,31 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
     );
   });
 
+  it("Stage 16: 시스템 프롬프트에 ISA 가입 자격 요건(소득 기준)이 포함된다", async () => {
+    mockReply("서민형은 총급여 5천만원 이하 또는 종합소득 3,800만원 이하면 가입할 수 있어요.");
+
+    await chatWithTaxAssistant([
+      { role: "user", content: "서민형 ISA 가입하려면 소득이 얼마여야 해요?" },
+    ]);
+
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.system).toContain("가입 자격");
+    expect(params.system).toContain("5천만원");
+    expect(params.system).toContain("3,800만원");
+  });
+
+  it("Stage 16: 국내투자형 ISA 신설도 추진 중인 세법 개정안 질문 대응 규칙에 포함된다", async () => {
+    mockReply("국내투자형 ISA는 아직 국회를 통과하지 않아 시행 여부가 확정되지 않았어요.");
+
+    await chatWithTaxAssistant([
+      { role: "user", content: "국내투자형 ISA는 언제 생기나요?" },
+    ]);
+
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.system).toContain("국내투자형 ISA 신설");
+    expect(params.system).toContain("아직 국회를 통과하지 않았으며, 시행 여부와 구체적 시점은 확정되지 않았다");
+  });
+
   it("Stage 14: 500만원/1000만원 확대안 질문에는 국회 미통과 추진안이라고 안내하도록 지시한다", async () => {
     mockReply("아직 국회를 통과하지 않은 추진안이라 시행 여부와 시점이 확정되지 않았어요.");
 

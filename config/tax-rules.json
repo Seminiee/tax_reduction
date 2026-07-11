@@ -10,9 +10,28 @@
   },
   "isa_account": {
     "types": {
-      "general": { "tax_free_limit_krw": 2000000, "verified": true },
-      "low_income": { "tax_free_limit_krw": 4000000, "verified": true },
-      "farmer": { "tax_free_limit_krw": 4000000, "verified": true }
+      "general": { "tax_free_limit_krw": 2000000, "verified": true, "eligibility": null },
+      "low_income": {
+        "tax_free_limit_krw": 4000000,
+        "verified": true,
+        "eligibility": {
+          "income_salary_only_krw": 50000000,
+          "income_comprehensive_krw": 38000000,
+          "note": "무소득자 포함, 직전 과세기간 기준. 총급여만 있으면 5천만원 이하, 종합소득이면 3,800만원 이하",
+          "verified": true,
+          "as_of": "2026-07-11"
+        }
+      },
+      "farmer": {
+        "tax_free_limit_krw": 4000000,
+        "verified": true,
+        "eligibility": {
+          "income_comprehensive_krw": 38000000,
+          "note": "농어민 대상, 종합소득 3,800만원 이하",
+          "verified": true,
+          "as_of": "2026-07-11"
+        }
+      }
     },
     "separate_tax_rate_over_limit": 0.099,
     "min_holding_years": 3,

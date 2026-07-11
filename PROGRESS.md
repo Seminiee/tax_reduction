@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~15 전부 완료, 프로덕션 재배포 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
-- **마지막 업데이트**: 2026-07-11 (Stage 15 완료, 프로덕션 재배포 완료)
+- **다음 작업**: 없음 (Stage 0~16 전부 완료, 로컬 검증까지 완료). **프로덕션 재배포는 사용자 확인 후 별도 진행**(요청받은 대로 재배포하지 않음)
+- **마지막 업데이트**: 2026-07-11 (Stage 16 완료, 로컬 검증까지만 진행)
 
 ## 스테이지 체크리스트
 
@@ -26,6 +26,7 @@
 | 13 | deploy-and-verify (rate-limit/모바일 재확인, 최종 배포) | done |
 | 14 | chatbot-ui-redesign-and-fact-fix (ISA 한도 사실관계 수정 + 하단 바 UI) | done |
 | 15 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
+| 16 | chatbot-scope-eligibility (ISA 가입 자격 요건 챗봇 답변 범위 추가) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -213,5 +214,17 @@
 - `npm run build`/`npm run lint`/`npm run test`(69개, 스모크 7개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
 - 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/`에서 챗봇이 collapsed 상태로 시작함을 확인 → "비과세 한도 정확히 얼마예요?" 질문에 "일반형 200만원, 서민형/농어민형 400만원"으로 정확히 답하고 500만원/1,000만원은 "국회에서 논의 중이나 아직 통과되지 않음"으로 정확히 구분하는 응답을 실제 배포 환경에서 재확인(로컬과 동일하게 정상). 접기 버튼으로 collapsed 복귀 확인. `/trade`로 이동 시 챗봇이 collapsed 상태로 리셋되지만(예상된 동작 — isExpanded는 로컬 UI 상태) 대화 메시지 자체는 Context에 그대로 유지됨을 확인(1건). `/dividend`로 이동해도 메시지 1건 계속 유지 확인. 375px 모바일에서 collapsed/expanded 모두 수평 오버플로우 없음, 콘솔 에러 없음 확인.
 - feature_list.json Stage 15 done 처리, 커밋.
+
+### 2026-07-11 (Stage 16)
+- feature_list.json에 Stage 16(chatbot-scope-eligibility) 신규 추가(0~15 미변경).
+- 발견된 문제: 챗봇에게 "서민형 ISA 가입하려면 소득이 얼마여야 하냐"고 물으면 v1/v2 프롬프트에 가입 자격 관련 근거 정보가 전혀 없어 [역할과 범위] 규칙에 따라 "세금 관련 질문만 답변할 수 있어요"라며 범위 밖으로 잘못 처리했음. 가입 자격은 명백히 이 서비스가 다루는 ISA 주제인데 프롬프트가 못 따라간 것이 원인.
+- config/tax-rules.json: `isa_account.types`에 `eligibility` 필드 추가 — 일반형은 `null`(소득 제한 없음), 서민형은 `{income_salary_only_krw: 50000000, income_comprehensive_krw: 38000000, note, verified: true, as_of: 2026-07-11}`, 농어민형은 `{income_comprehensive_krw: 38000000, note, verified: true, as_of: 2026-07-11}`.
+- skills.md: 1절에 "ISA 가입 자격" 소단원 추가(일반형/서민형/농어민형 기준 + 국내투자형 ISA 신설 논의로 향후 자격이 바뀔 수 있다는 한 줄), 2절 확인 필요 항목에 "국내투자형 ISA 신설 및 금융소득종합과세 대상자 가입 허용 여부" 추가.
+- lib/ai/chat-with-tax-assistant.ts의 `CHAT_SYSTEM_PROMPT`를 v3로 갱신(실제 코드): [역할과 범위] 주제 목록에 "ISA 계좌 유형별 가입 자격 요건" 추가, [답변 근거]에 가입 자격 기준(소득 요건) 신규 불릿 추가, [추진 중인 세법 개정안 질문 대응]에 "국내투자형 ISA 신설(금융소득종합과세 대상자도 가입 허용)"을 기존 비과세 한도 확대와 같은 범주로 추가.
+- PROMPTS.md: 챗봇 시스템 프롬프트 "v3" 섹션 신규 추가(v1/v2 원문 이력 보존), v3 검증용 실제 응답 예시 2건(가입 자격 질문, 국내투자형 ISA 질문) 추가.
+- 단위테스트 2건 추가: v3 프롬프트에 "가입 자격", "5천만원", "3,800만원" 문구 포함 확인 + "국내투자형 ISA 신설" 관련 미확정 안내 규칙 포함 확인 — 전부 통과.
+- 스모크 테스트 2건 추가 + 실제 API(`RUN_AI_SMOKE_TEST=1`) 7개 전부 통과 확인: 서민형 가입 소득 기준 질문에 더 이상 "범위 밖"으로 처리하지 않고 5천만원/3,800만원 정확히 답변, 국내투자형 ISA 질문에 국회 미통과·시점 미확정으로 정확히 안내. `npx tsx`로 실제 응답 원문 캡처해 PROMPTS.md에 기록.
+- `npm run build`/`npm run lint`/`npm run test`(71개, 스모크 9개 스킵) 모두 통과.
+- feature_list.json Stage 16 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

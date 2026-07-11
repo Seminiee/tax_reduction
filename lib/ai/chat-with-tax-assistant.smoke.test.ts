@@ -35,6 +35,23 @@ describe.skipIf(!shouldRun)("chatWithTaxAssistant 스모크 테스트 (실제 AP
     expect(result).toContain("확인");
   }, 30_000);
 
+  it("Stage 16: 서민형 ISA 가입 소득 기준 질문에는 범위를 벗어난다고 하지 않고 정확한 기준으로 답한다", async () => {
+    const result = await chatWithTaxAssistant([
+      { role: "user", content: "서민형 ISA 가입하려면 소득이 얼마여야 해요?" },
+    ]);
+    expect(result).not.toContain("세금 관련 질문만 답변할 수 있어요");
+    expect(result).toMatch(/5[,]?000만|5천만/);
+    expect(result).toContain("3,800만");
+  }, 30_000);
+
+  it("Stage 16: 국내투자형 ISA 신설 질문에는 미확정 추진안이라고 안내한다", async () => {
+    const result = await chatWithTaxAssistant([
+      { role: "user", content: "국내투자형 ISA는 언제 생기나요?" },
+    ]);
+    expect(result).not.toContain("세금 관련 질문만 답변할 수 있어요");
+    expect(result).toContain("국회");
+  }, 30_000);
+
   it("범위 밖 질문에는 범위를 정중히 안내한다", async () => {
     const result = await chatWithTaxAssistant([
       { role: "user", content: "오늘 저녁 메뉴 추천해줘" },
