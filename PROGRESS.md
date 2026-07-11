@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~16 전부 완료, 로컬 검증까지 완료). **프로덕션 재배포는 사용자 확인 후 별도 진행**(요청받은 대로 재배포하지 않음)
-- **마지막 업데이트**: 2026-07-11 (Stage 16 완료, 로컬 검증까지만 진행)
+- **다음 작업**: 없음 (Stage 0~17 전부 완료, 프로덕션 재배포 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
+- **마지막 업데이트**: 2026-07-11 (Stage 17 완료, 프로덕션 재배포 완료)
 
 ## 스테이지 체크리스트
 
@@ -27,6 +27,7 @@
 | 14 | chatbot-ui-redesign-and-fact-fix (ISA 한도 사실관계 수정 + 하단 바 UI) | done |
 | 15 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 16 | chatbot-scope-eligibility (ISA 가입 자격 요건 챗봇 답변 범위 추가) | done |
+| 17 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -226,5 +227,12 @@
 - 스모크 테스트 2건 추가 + 실제 API(`RUN_AI_SMOKE_TEST=1`) 7개 전부 통과 확인: 서민형 가입 소득 기준 질문에 더 이상 "범위 밖"으로 처리하지 않고 5천만원/3,800만원 정확히 답변, 국내투자형 ISA 질문에 국회 미통과·시점 미확정으로 정확히 안내. `npx tsx`로 실제 응답 원문 캡처해 PROMPTS.md에 기록.
 - `npm run build`/`npm run lint`/`npm run test`(71개, 스모크 9개 스킵) 모두 통과.
 - feature_list.json Stage 16 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-11 (Stage 17)
+- feature_list.json에 Stage 17(deploy-and-verify) 신규 추가(0~16 미변경). 사용자가 처음 "Stage 18"로 요청했으나 실제 마지막 스테이지가 16이라 번호가 하나 비게 되는 것을 발견해 17로 진행(사용자에게 고지 후 진행).
+- rate-limit 재확인: 5개 API 라우트 모두 정상. `npm audit`: 신규 취약점 없음, 기존 postcss 모더레이트 1건만 잔존.
+- `npm run build`/`npm run lint`/`npm run test`(71개, 스모크 9개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright, 실제 Anthropic API 호출): "서민형 ISA 가입 소득 기준이 얼마예요?" → 총급여 5,000만원 이하/종합소득 3,800만원 이하로 정확히 답변. "국내투자형 ISA는 언제 생기나요?" → 국회 미통과·시행 여부 미확정으로 정확히 안내. 로컬과 동일한 정확도로 배포 환경에서도 재확인됨. `/`→`/trade`→`/dividend` 이동 시마다 하단 바 챗봇이 정상적으로 expand되고 대화 메시지(2건)가 계속 유지됨을 확인. 콘솔 에러 없음.
+- feature_list.json Stage 17 done 처리, 커밋.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
