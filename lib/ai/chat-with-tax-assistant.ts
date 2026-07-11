@@ -62,7 +62,34 @@ export interface TradeSimulationContext {
   };
 }
 
-export type ChatCurrentSimulation = HoldSimulationContext | TradeSimulationContext;
+// Stage 10: 배당금 계산기(/dividend)의 실제 시뮬레이션 조건/결과. hold/trade와 마찬가지로
+// request(사용자가 입력한 조건)/response(dividend-calculator.ts 계산 결과) 구조를 따른다.
+export interface DividendSimulationContext {
+  kind: "dividend";
+  request: {
+    stockName: string;
+    quantity: number;
+    dividendPerShareKrw: number;
+    isaType: string;
+    otherFinancialIncomeKrw: number;
+  };
+  response: {
+    totalDividendKrw: number;
+    taxFreeLimitKrw: number;
+    isComprehensiveTaxationTriggered: boolean;
+    marginalTaxRateApplied: number;
+    generalDividendTaxKrw: number;
+    generalNetReceivedKrw: number;
+    isaDividendTaxKrw: number;
+    isaNetReceivedKrw: number;
+    taxSavingKrw: number;
+  };
+}
+
+export type ChatCurrentSimulation =
+  | HoldSimulationContext
+  | TradeSimulationContext
+  | DividendSimulationContext;
 
 // 실사용 원문은 PROMPTS.md에도 동일하게 기록되어 있다 (지원서 제출용, 수정 시 함께 갱신할 것).
 export const CHAT_SYSTEM_PROMPT = `당신은 "해외ETF 세후수익 시뮬레이터" 서비스에 내장된 ISA/해외주식 세금 Q&A 도우미입니다. 아래 규칙을 반드시 지키세요.
@@ -100,6 +127,16 @@ export function buildCurrentSimulationContext(sim: ChatCurrentSimulation): strin
 - 종목: ${request.stockName}, 현재가: ${request.currentPriceKrw.toLocaleString("ko-KR")}원, 수량: ${request.quantity.toLocaleString("ko-KR")}주, 주당 예상 이익: ${request.expectedProfitPerShareKrw.toLocaleString("ko-KR")}원, 주당 예상 손실: ${request.expectedLossPerShareKrw.toLocaleString("ko-KR")}원, ISA 유형: ${request.isaType}
 - 연간 납입한도(2,000만원) 초과 여부: ${response.isExceedingContributionLimit ? "예" : "아니오"} (ISA 편입 ${response.isaQuantity.toLocaleString("ko-KR")}주 / 일반계좌 강제전환 ${response.generalQuantity.toLocaleString("ko-KR")}주)
 - 실제 발생 세금: ${response.totalTaxKrw.toLocaleString("ko-KR")}원 (ISA 분리과세 ${response.isaTaxKrw.toLocaleString("ko-KR")}원 + 강제전환분 양도소득세 ${response.generalForcedTaxKrw.toLocaleString("ko-KR")}원), 전량 일반계좌였다면 ${response.generalOnlyTaxKrw.toLocaleString("ko-KR")}원, 절세액: ${response.savedAmountKrw.toLocaleString("ko-KR")}원`;
+  }
+
+  if (sim.kind === "dividend") {
+    const { request, response } = sim;
+    return `[현재 시뮬레이션 조건 — 배당금 계산기]
+사용자가 방금 아래 조건으로 배당금 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며, 매수원가 정보가 없어 ISA 연간 납입한도 초과 로직은 다루지 않습니다.
+- 종목: ${request.stockName}, 수량: ${request.quantity.toLocaleString("ko-KR")}주, 주당 배당금: ${request.dividendPerShareKrw.toLocaleString("ko-KR")}원, ISA 유형: ${request.isaType}, 다른 금융소득: ${request.otherFinancialIncomeKrw.toLocaleString("ko-KR")}원
+- 총 배당금: ${response.totalDividendKrw.toLocaleString("ko-KR")}원, 금융소득종합과세 대상 여부: ${response.isComprehensiveTaxationTriggered ? "예" : "아니오"}(적용 세율 ${(response.marginalTaxRateApplied * 100).toFixed(1)}%)
+- 일반계좌 실수령액: ${response.generalNetReceivedKrw.toLocaleString("ko-KR")}원 (세금 ${response.generalDividendTaxKrw.toLocaleString("ko-KR")}원)
+- ISA 실수령액: ${response.isaNetReceivedKrw.toLocaleString("ko-KR")}원 (세금 ${response.isaDividendTaxKrw.toLocaleString("ko-KR")}원), 세금 이득(일반-ISA): ${response.taxSavingKrw.toLocaleString("ko-KR")}원`;
   }
 
   const { request, response } = sim;

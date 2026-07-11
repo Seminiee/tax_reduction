@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Stage 7: 두 도구를 오가는 공용 네비게이션. 각 도구 자체 색(거치식=블루, 매매차익=그린)과
-// 무관하게 셸 자체는 중립 슬레이트 색으로 유지한다. /trade는 Stage 8에서 만들 예정이라
-// 지금은 링크만 걸어두고, 클릭 시 404가 뜨는 것은 정상이다.
+// Stage 7: 여러 도구를 오가는 공용 네비게이션. 각 도구 자체 색(거치식=블루, 매매차익=그린,
+// 배당금=앰버)과 무관하게 셸 자체는 중립 슬레이트 색으로 유지한다.
 const TOOLS = [
   { href: "/", label: "거치 기준 수익" },
   { href: "/trade", label: "매매차익 계산기" },
+  { href: "/dividend", label: "배당금 계산기" },
 ];
 
 export function SiteNav() {

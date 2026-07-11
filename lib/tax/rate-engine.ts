@@ -13,6 +13,14 @@ export interface IsaSeparateTaxConfig {
   };
 }
 
+export interface GeneralDividendTaxConfig {
+  general_account: {
+    domestic_dividend_withholding_rate: number;
+    foreign_withholding_rate_us: number;
+    comprehensive_taxation_threshold_krw: number;
+  };
+}
+
 export type RateEngineConfig = typeof taxRules;
 
 /**
@@ -38,4 +46,40 @@ export function applyIsaSeparateTax(
 ): number {
   const { separate_tax_rate_over_limit } = config.isa_account;
   return Math.max(0, netGainKrw - taxFreeLimitKrw) * separate_tax_rate_over_limit;
+}
+
+/**
+ * 일반 해외주식 계좌 배당소득세: 현지 원천징수(보통 15%) 후 국내 배당소득세 15.4% 기준으로
+ * 정산하되, 금융소득종합과세 기준(comprehensive_taxation_threshold_krw) 초과분에는
+ * marginalTaxRateForComprehensiveIncome(현지세율 차감)을 적용한다.
+ * general-account.ts의 기존 인라인 계산식(연도별 배당세 로직)을 그대로 옮긴 것이다.
+ */
+export function applyGeneralDividendTax(
+  totalDividendKrw: number,
+  config: GeneralDividendTaxConfig,
+  marginalTaxRateForComprehensiveIncome: number
+): number {
+  const {
+    domestic_dividend_withholding_rate,
+    foreign_withholding_rate_us,
+    comprehensive_taxation_threshold_krw,
+  } = config.general_account;
+
+  const foreignWithholdingTax = totalDividendKrw * foreign_withholding_rate_us;
+
+  const isComprehensiveTaxationTriggered = totalDividendKrw > comprehensive_taxation_threshold_krw;
+  const thresholdPortion = isComprehensiveTaxationTriggered
+    ? comprehensive_taxation_threshold_krw
+    : totalDividendKrw;
+  const excessPortion = isComprehensiveTaxationTriggered
+    ? totalDividendKrw - comprehensive_taxation_threshold_krw
+    : 0;
+
+  const domesticTaxOnThresholdPortion =
+    thresholdPortion * Math.max(0, domestic_dividend_withholding_rate - foreign_withholding_rate_us);
+  const domesticTaxOnExcessPortion =
+    excessPortion * Math.max(0, marginalTaxRateForComprehensiveIncome - foreign_withholding_rate_us);
+  const domesticDividendTax = domesticTaxOnThresholdPortion + domesticTaxOnExcessPortion;
+
+  return foreignWithholdingTax + domesticDividendTax;
 }

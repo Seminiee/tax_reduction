@@ -110,6 +110,40 @@ assumedFields: { field: string; reason: string }[]
 
 ---
 
+## 1-C. 배당금 계산기 자연어 파싱 (`/api/parse-dividend`, Stage 10)
+
+- 모델: `claude-haiku-4-5-20251001`
+- 방식: `client.messages.parse()` + `zodOutputFormat`(구조화된 JSON 출력 강제)
+- max_tokens: 1024
+- 기존 `/api/parse`, `/api/parse-trade`와는 입력 스키마가 달라 별도 라우트/파서(`lib/ai/parse-dividend-input.ts`)로 분리했다. rate-limit(`lib/rate-limit.ts`)은 구현 시점부터 다른 세 AI 라우트와 동일하게 적용했다(Stage 9에서 parse-trade에 나중에 붙였던 방식을 반복하지 않음).
+
+### 시스템 프롬프트 원문
+
+```
+당신은 한국 세금 시뮬레이터의 배당금 계산기 입력 파서입니다. 사용자가 자유롭게 서술한 배당 보유 계획을 읽고 아래 필드를 채워 JSON으로 반환하세요.
+
+- stockName: 종목명(문자열). 언급이 없으면 "종목"으로 가정하세요.
+- quantity: 보유 수량(정수).
+- dividendPerShareKrw: 주당 배당금(원 단위 정수).
+- otherFinancialIncomeKrw: 이 배당 외 연간 다른 금융소득(원). 언급이 없으면 0으로 가정하세요.
+
+사용자가 명시적으로 말하지 않아 기본값으로 채운 모든 필드는 assumedFields 배열에 {field, reason} 형태로 반드시 포함하세요. reason은 왜 그 기본값을 선택했는지 한국어로 간단히 설명하세요. 사용자가 준 정보로 확정할 수 있는 필드는 assumedFields에 넣지 마세요.
+```
+
+### 출력 스키마 (zod, `ParsedDividendInputSchema`)
+
+```
+stockName: string
+quantity: number
+dividendPerShareKrw: number
+otherFinancialIncomeKrw: number
+assumedFields: { field: string; reason: string }[]
+```
+
+(isaType은 이 스키마에 없다 — 배당금 계산기는 화면에서 사용자가 이미 선택한 ISA 유형 토글 값을 그대로 유지하고, AI 파싱 결과로 덮어쓰지 않는다.)
+
+---
+
 ## 2. 결과 해설 (`/api/explain`)
 
 - 모델: `claude-haiku-4-5-20251001`
@@ -198,6 +232,17 @@ assumedFields: { field: string; reason: string }[]
 - 종목: {stockName}, 현재가: {currentPriceKrw}원, 수량: {quantity}주, 주당 예상 이익: {expectedProfitPerShareKrw}원, 주당 예상 손실: {expectedLossPerShareKrw}원, ISA 유형: {isaType}
 - 연간 납입한도(2,000만원) 초과 여부: {예/아니오} (ISA 편입 {isaQuantity}주 / 일반계좌 강제전환 {generalQuantity}주)
 - 실제 발생 세금: {totalTaxKrw}원 (ISA 분리과세 {isaTaxKrw}원 + 강제전환분 양도소득세 {generalForcedTaxKrw}원), 전량 일반계좌였다면 {generalOnlyTaxKrw}원, 절세액: {savedAmountKrw}원
+```
+
+배당금 계산기(`/dividend`, `kind: "dividend"`, Stage 10)에서 왔으면 아래 템플릿을 붙인다. 이 도구도 ISA 3년 의무유지를 가정하지만, trade 템플릿과 달리 매수원가 정보가 없어 연간 납입한도 초과 필드가 없고 대신 금융소득종합과세 대상 여부/적용 세율과 두 계좌의 실수령액을 포함한다.
+
+```
+[현재 시뮬레이션 조건 — 배당금 계산기]
+사용자가 방금 아래 조건으로 배당금 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며, 매수원가 정보가 없어 ISA 연간 납입한도 초과 로직은 다루지 않습니다.
+- 종목: {stockName}, 수량: {quantity}주, 주당 배당금: {dividendPerShareKrw}원, ISA 유형: {isaType}, 다른 금융소득: {otherFinancialIncomeKrw}원
+- 총 배당금: {totalDividendKrw}원, 금융소득종합과세 대상 여부: {예/아니오}(적용 세율 {marginalTaxRateApplied}%)
+- 일반계좌 실수령액: {generalNetReceivedKrw}원 (세금 {generalDividendTaxKrw}원)
+- ISA 실수령액: {isaNetReceivedKrw}원 (세금 {isaDividendTaxKrw}원), 세금 이득(일반-ISA): {taxSavingKrw}원
 ```
 
 (중괄호 부분은 `lib/ai/chat-with-tax-assistant.ts`의 `buildCurrentSimulationContext`가 실제 값으로 채운다.)

@@ -127,6 +127,21 @@
         "배포 URL에서 실제 검증: / 거치식 전체 플로우, /trade 매매차익 전체 플로우, 두 페이지 오가며 챗봇 히스토리 유지, /api/parse-trade 11번째 요청부터 429 반환"
       ],
       "done_criteria": "rate-limit 적용 라우트 목록 확정 + npm audit 심각한 취약점 없음 + 프로덕션 배포 완료 + 배포 URL에서 두 도구 전체 플로우와 429 동작 실제 확인"
+    },
+    {
+      "id": 10,
+      "name": "dividend-calculator",
+      "status": "done",
+      "tasks": [
+        "lib/tax/rate-engine.ts에 applyGeneralDividendTax(totalDividendKrw, config, marginalTaxRateForComprehensiveIncome) 신규 추출, general-account.ts가 내부적으로 사용하도록 리팩터링 (기존 테스트 전부 통과 필수)",
+        "lib/tax/dividend-calculator.ts 신규: 배당금 순수함수 (otherFinancialIncomeKrw 선택 입력으로 종합과세 브래킷 판단, ISA 납입한도 로직 미포함), 최소 5개 단위테스트",
+        "skills.md '7. 배당금 계산기 스코프' 섹션 추가",
+        "app/dividend/page.tsx + 컴포넌트: 앰버/골드 테마, 수량 슬라이더 클라이언트 직접 계산, 세금 이득 헤드라인, 비교 카드, ISA 3년 의무유지 문구, 다른 금융소득 접이식 고급설정",
+        "app/api/parse-dividend/route.ts 신규 (rate-limit 처음부터 적용) + PROMPTS.md 원문 기록",
+        "ChatCurrentSimulation에 DividendSimulationContext(kind: dividend) 추가, buildCurrentSimulationContext dividend 분기 구현, PROMPTS.md 동적 템플릿 추가",
+        "app/layout.tsx SiteNav에 '배당금 계산기' → /dividend 링크 추가 (기존 두 링크 유지)"
+      ],
+      "done_criteria": "/dividend에서 슬라이더/AI입력/챗봇(공용) 전체 플로우 정상 동작 + 기존 전체 테스트(리팩터링 포함) + 신규 테스트 전부 통과 + /·/trade·/dividend 세 페이지를 오가도 챗봇 히스토리 유지 + /api/parse-dividend rate-limit 적용 상태로 배포"
     }
   ]
 }

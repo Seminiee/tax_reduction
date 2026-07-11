@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~9 전부 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
-- **마지막 업데이트**: 2026-07-07 (Stage 9 완료, 프로덕션 재배포 완료)
+- **다음 작업**: 없음 (Stage 0~10 전부 완료, 로컬 검증까지 완료. 프로덕션 재배포는 사용자 확인 후 별도 진행 예정 — Stage 9 패턴과 동일하게 재배포/최종 rate-limit 점검은 요청 시 진행)
+- **마지막 업데이트**: 2026-07-11 (Stage 10 완료)
 
 ## 스테이지 체크리스트
 
@@ -20,6 +20,7 @@
 | 7 | 다중 도구 공유 셸 (네비게이션 + 공용 챗봇, feature_list.json 신규 추가) | done |
 | 8 | 매매차익 계산기 (/trade, rate-engine 리팩터링 + 신규 순수함수) | done |
 | 9 | security-parity + final-qa (rate-limit 점검, npm audit, 최종 배포/검증) | done |
+| 10 | 배당금 계산기 (/dividend, rate-engine에 applyGeneralDividendTax 추가) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -139,5 +140,20 @@
   - 전체 플로우 테스트 중 `/trade`의 AI 파싱이 응답까지 6초 이상 걸려 스크린샷에 "분석 중..." 상태가 찍힌 것을 발견 — 별도로 격리해서 재확인한 결과 정상 상태에서는 약 1.8초 만에 정확히 파싱됨(200 응답, 종목명/가격/이익/손실/수량/isaType assumedFields 전부 정확). 동시에 돌리고 있던 rate-limit 반복 요청 테스트 부하 때문에 일시적으로 느려진 것으로 판단, 실제 버그 아님.
   - `/api/parse-trade` rate-limit 실동작 확인: 프로덕션에서 연속 요청 시 일부는 6~7번째부터 429+Retry-After를 반환함을 확인(정확히 11번째가 아닌 경우가 있었음) — 이는 lib/rate-limit.ts 주석에 이미 문서화된 대로 서버리스 인스턴스가 여러 개 뜨면 인스턴스마다 카운트가 분리되어 실제 허용치가 설정값과 달라질 수 있다는 알려진 한계 때문. 429/Retry-After 자체는 정상 동작함을 확인(새로운 버그 아님, Stage 6부터 있던 동일한 in-memory rate limiter의 알려진 특성).
 - PROGRESS.md/feature_list.json Stage 9 done 처리, 커밋.
+
+### 2026-07-11 (Stage 10)
+- feature_list.json에 Stage 10(dividend-calculator) 신규 추가(0~9 미변경). 공유 파일(app/layout.tsx의 SiteNav, ChatCurrentSimulation 유니언 타입)에는 최소 추가만 하고 기존 로직/디자인은 변경하지 않음.
+- lib/tax/rate-engine.ts에 `applyGeneralDividendTax(totalDividendKrw, config, marginalTaxRateForComprehensiveIncome)` 신규 추출(현지 원천세+국내 배당소득세 정산, 종합과세 초과분 한계세율 적용 — general-account.ts의 기존 연도별 인라인 계산식을 그대로 옮김). general-account.ts가 이 함수를 내부적으로 쓰도록 리팩터링하되, yearlyBreakdown의 `foreignWithholdingTax`/`domesticDividendTax`/`isComprehensiveTaxationTriggered` 필드는 그대로 유지(foreignWithholdingTax는 계속 인라인 계산, domesticDividendTax는 `dividendTaxForYear - foreignWithholdingTax`로 역산). 리팩터링 직후 기존 52개 테스트 전부 재실행해 통과 확인 — 회귀 없음.
+- lib/tax/dividend-calculator.ts 신규: `calculateDividend` 순수함수. `otherFinancialIncomeKrw`가 0(기본값)이면 이 배당금 단독으로 종합과세를 판단하지 않고 국내 배당소득세율(15.4%)을 그대로 한계세율 자리에 대입 — `applyGeneralDividendTax`의 임계값 분리 계산식이 대입한 세율=국내세율일 때 대수적으로 정확히 `totalDividendKrw*15.4%`로 귀결됨을 증명하고 이를 이용해 로직 중복 없이 "고정 15.4%"를 구현함. ISA 쪽은 `applyIsaSeparateTax`를 손익통산 없이 배당금 자체를 순이익으로 취급해 그대로 재사용. ISA 연간 납입한도 초과 로직은 매수원가 정보가 없어 포함하지 않음(trade-calculator.ts와 다른 스코프).
+- 단위테스트 5개(비과세한도 이내/초과/otherFinancialIncomeKrw로 종합과세 대상/일반계좌가 유리한 케이스 존재 여부 검증/quantity=0 경계값) 전부 통과. 4번째 테스트에서 수학적으로 증명: 일반계좌의 최저 실효세율(현지 원천징수 15%)이 ISA의 초과분 분리과세율(9.9%)보다 항상 높고 ISA는 추가로 비과세 한도까지 있어, 배당금 단독 비교에서는 일반계좌가 ISA보다 유리해지는 세율 조합이 존재하지 않음(한계세율이 최고 구간 45%까지 올라가도 확인) — "있다면"이라는 조건부 요청에 정직하게 답한 것으로, 인위적으로 반례를 만들지 않음.
+- skills.md에 "7. 배당금 계산기 스코프" 섹션 추가: ISA 납입한도 로직 제외 이유, ISA 3년 의무유지 가정, otherFinancialIncomeKrw 선택 입력의 의미를 명시.
+- app/dividend/page.tsx + components/dividend-calculator/*(DividendCalculator, IsaTypeToggle, ScenarioForm, ResultPanel, NaturalLanguageInputCard, Disclaimer): app/trade의 레이아웃 패턴(헤드라인 결과 숫자+수량 슬라이더+비교 카드)을 참고해 앰버/골드(#f59e0b) 테마로 구성. 수량 슬라이더는 API 호출 없이 클라이언트에서 dividend-calculator.ts를 직접 호출해 즉시 재계산(Stage 3/8과 동일 패턴). 헤드라인은 세금 이득이 양수면 큰 금액을, 음수(이론상 이 모델에서는 발생하지 않지만 타입 계약상 가능)면 "일반계좌가 더 유리해요" 톤으로 분기 표시. 비교 카드는 더 유리한 쪽에만 "이 조건에서 더 유리" 배지(무조건 ISA 강조 아님). "다른 금융소득"은 접이식 고급설정으로 기본 숨김. "ISA 3년 의무유지를 가정합니다" 상시 노출.
+- app/api/parse-dividend/route.ts + lib/ai/parse-dividend-input.ts 신규: 스키마(stockName/quantity/dividendPerShareKrw/otherFinancialIncomeKrw, isaType 제외 — 화면에 이미 선택된 토글값을 AI가 덮어쓰지 않도록). **rate-limit(lib/rate-limit.ts)을 구현 시점부터 다른 세 AI 라우트와 동일하게 적용**(Stage 9에서 parse-trade에 나중에 붙였던 방식을 반복하지 않음, 사용자가 명시적으로 요청한 부분).
+- lib/ai/chat-with-tax-assistant.ts: `DividendSimulationContext`(kind: "dividend") 추가해 `ChatCurrentSimulation`을 3원 유니언(hold|trade|dividend)으로 확장. `buildCurrentSimulationContext`에 dividend 분기 구현(hold/trade와 동일 패턴 — 종목/수량/배당금/종합과세 여부/두 계좌 실수령액/세금이득 요약). app/api/chat/route.ts의 `isValidCurrentSimulation`도 dividend kind 검증 추가.
+- components/site-shell/SiteNav.tsx에 "배당금 계산기" → /dividend 링크 추가(기존 두 링크는 그대로 유지, 최소 추가만).
+- PROMPTS.md에 "1-C. 배당금 계산기 자연어 파싱" 섹션(parse-dividend 시스템 프롬프트 원문+출력 스키마) 및 챗봇 동적 템플릿 섹션에 dividend용 변형 추가.
+- Playwright로 실제 브라우저 검증(로컬): `/dividend` 기본 렌더(콘솔 에러 없음, 200주 기준 세금 이득 계산 수기 검증과 일치), 수량 슬라이더 조작 시 즉시 재계산 확인(500주 기준 세금 이득 154,000원, 수기 계산과 일치), "다른 금융소득" 고급설정 펼치기/입력 확인, AI로 조건 채우기(삼성전자 200주, 배당금 1500원, 다른 금융소득 없음) 실제 Claude API로 정확히 파싱되어 폼 반영(otherFinancialIncomeKrw가 이전 입력값을 정확히 0으로 덮어씀) 확인, 플로팅 챗봇이 실제 계산 조건(세금 이득 46,200원 등)을 정확히 참조하는 응답 반환 확인, `/dividend`→`/`→`/trade`→`/dividend` 왕복 후에도 챗봇 대화 1건 유지 확인.
+- `npm run build`/`npm run lint`/`npm run test`(62개, 스모크 5개 스킵) 모두 통과.
+- feature_list.json Stage 10 done 처리, 커밋. **사용자 확인 없이 다음 단계(프로덕션 재배포/rate-limit 최종 점검)로 넘어가지 않음** — 다음 세션에서 재배포 요청 시 Stage 9와 동일한 패턴(rate-limit 목록 재확인 + npm audit + 배포 + 실제 브라우저 검증)으로 진행할 것.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

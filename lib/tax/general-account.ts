@@ -1,8 +1,7 @@
 import taxRules from "@/config/tax-rules.json";
-import { applyGeneralCapitalGainsTax } from "./rate-engine";
+import { applyGeneralCapitalGainsTax, applyGeneralDividendTax } from "./rate-engine";
 
 const {
-  domestic_dividend_withholding_rate: DOMESTIC_DIVIDEND_WITHHOLDING_RATE,
   foreign_withholding_rate_us: FOREIGN_WITHHOLDING_RATE_US,
   comprehensive_taxation_threshold_krw: COMPREHENSIVE_TAXATION_THRESHOLD_KRW,
 } = taxRules.general_account;
@@ -75,32 +74,23 @@ export function simulateGeneralAccount(
     const dividendIncome = startBalance * annualDividendYieldRate;
     const capitalGrowth = startBalance * (annualReturnRate - annualDividendYieldRate);
 
+    // 기준 이내: 현지 원천세로 종결(분리과세), 국내 세율까지만 차액 추가 과세.
+    // 기준 초과분: 종합과세로 전환되어 한계세율 적용, 이미 낸 현지세는 세액공제로 차감.
     const foreignWithholdingTax = dividendIncome * FOREIGN_WITHHOLDING_RATE_US;
-
     const isComprehensiveTaxationTriggered =
       dividendIncome > COMPREHENSIVE_TAXATION_THRESHOLD_KRW;
-    const thresholdPortion = isComprehensiveTaxationTriggered
-      ? COMPREHENSIVE_TAXATION_THRESHOLD_KRW
-      : dividendIncome;
-    const excessPortion = isComprehensiveTaxationTriggered
-      ? dividendIncome - COMPREHENSIVE_TAXATION_THRESHOLD_KRW
-      : 0;
+    const dividendTaxForYear = applyGeneralDividendTax(
+      dividendIncome,
+      taxRules,
+      marginalTaxRateForComprehensiveIncome
+    );
+    const domesticDividendTax = dividendTaxForYear - foreignWithholdingTax;
 
-    // 기준 이내: 현지 원천세로 종결(분리과세), 국내 세율까지만 차액 추가 과세.
-    const domesticTaxOnThresholdPortion =
-      thresholdPortion *
-      Math.max(0, DOMESTIC_DIVIDEND_WITHHOLDING_RATE - FOREIGN_WITHHOLDING_RATE_US);
-    // 기준 초과분: 종합과세로 전환되어 한계세율 적용, 이미 낸 현지세는 세액공제로 차감.
-    const domesticTaxOnExcessPortion =
-      excessPortion *
-      Math.max(0, marginalTaxRateForComprehensiveIncome - FOREIGN_WITHHOLDING_RATE_US);
-    const domesticDividendTax = domesticTaxOnThresholdPortion + domesticTaxOnExcessPortion;
-
-    const afterTaxDividend = dividendIncome - foreignWithholdingTax - domesticDividendTax;
+    const afterTaxDividend = dividendIncome - dividendTaxForYear;
     const endBalance = startBalance + capitalGrowth + afterTaxDividend;
 
     costBasis += afterTaxDividend;
-    totalDividendTax += foreignWithholdingTax + domesticDividendTax;
+    totalDividendTax += dividendTaxForYear;
 
     yearlyBreakdown.push({
       year,

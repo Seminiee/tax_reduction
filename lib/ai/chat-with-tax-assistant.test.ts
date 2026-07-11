@@ -66,6 +66,28 @@ const SAMPLE_TRADE_SIMULATION: ChatCurrentSimulation = {
   },
 };
 
+const SAMPLE_DIVIDEND_SIMULATION: ChatCurrentSimulation = {
+  kind: "dividend",
+  request: {
+    stockName: "코카콜라",
+    quantity: 100,
+    dividendPerShareKrw: 100_000,
+    isaType: "general",
+    otherFinancialIncomeKrw: 0,
+  },
+  response: {
+    totalDividendKrw: 10_000_000,
+    taxFreeLimitKrw: 2_000_000,
+    isComprehensiveTaxationTriggered: false,
+    marginalTaxRateApplied: 0.154,
+    generalDividendTaxKrw: 1_540_000,
+    generalNetReceivedKrw: 8_460_000,
+    isaDividendTaxKrw: 792_000,
+    isaNetReceivedKrw: 9_208_000,
+    taxSavingKrw: 748_000,
+  },
+};
+
 function mockReply(text: string) {
   mockCreate.mockResolvedValue({ content: [{ type: "text", text }] });
 }
@@ -130,6 +152,14 @@ describe("buildCurrentSimulationContext", () => {
     expect(context).toContain("나스닥 100 ETF");
     expect(context).toContain("200주");
     expect(context).toContain("858,000원");
+    expect(context).toContain("ISA 3년 의무유지");
+  });
+
+  it("종목/배당금/세금이득을 포함한 컨텍스트 문자열을 만든다 (kind: dividend)", () => {
+    const context = buildCurrentSimulationContext(SAMPLE_DIVIDEND_SIMULATION);
+    expect(context).toContain("코카콜라");
+    expect(context).toContain("100주");
+    expect(context).toContain("748,000원");
     expect(context).toContain("ISA 3년 의무유지");
   });
 });
@@ -216,6 +246,19 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
     const [params] = mockCreate.mock.calls[0];
     expect(params.system).toContain("[현재 시뮬레이션 조건 — 매매차익 계산기]");
     expect(params.system).toContain("858,000원");
+  });
+
+  it("currentSimulation이 kind: dividend면 배당금 컨텍스트를 시스템 프롬프트에 추가한다", async () => {
+    mockReply("당신이 방금 계산한 배당 조건 기준으로는 ISA가 더 유리해요.");
+
+    await chatWithTaxAssistant(
+      [{ role: "user", content: "이 배당금 조건에서 얼마나 이득이에요?" }],
+      SAMPLE_DIVIDEND_SIMULATION
+    );
+
+    const [params] = mockCreate.mock.calls[0];
+    expect(params.system).toContain("[현재 시뮬레이션 조건 — 배당금 계산기]");
+    expect(params.system).toContain("748,000원");
   });
 
   it("히스토리는 최근 메시지만 잘라 API에 전달한다", async () => {
