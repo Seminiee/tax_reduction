@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~14 전부 완료, 로컬 검증까지 완료). **프로덕션 재배포는 사용자 확인 후 별도 진행**(요청받은 대로 재배포하지 않음)
-- **마지막 업데이트**: 2026-07-11 (Stage 14 완료, 로컬 검증까지만 진행)
+- **다음 작업**: 없음 (Stage 0~15 전부 완료, 프로덕션 재배포 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
+- **마지막 업데이트**: 2026-07-11 (Stage 15 완료, 프로덕션 재배포 완료)
 
 ## 스테이지 체크리스트
 
@@ -25,6 +25,7 @@
 | 12 | dividend-quantity-input-modes (수량/총매수금액 입력모드, resolveDividendQuantity) | done |
 | 13 | deploy-and-verify (rate-limit/모바일 재확인, 최종 배포) | done |
 | 14 | chatbot-ui-redesign-and-fact-fix (ISA 한도 사실관계 수정 + 하단 바 UI) | done |
+| 15 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -205,5 +206,12 @@
 - `npm run build`/`npm run lint`/`npm run test`(69개, 스모크 7개 스킵) 모두 통과.
 - 로컬 브라우저 검증(Playwright): `/`에서 collapsed→포커스 시 expand→접기 버튼으로 collapse 확인, 메시지 전송 시 자동 expand 및 "ISA 비과세 한도가 얼마예요?" 질문에 200만원/400만원을 확정 답변하고 500만원/1,000만원은 "국회 통과 전 추진안"으로 정확히 구분하는 응답 확인. `/`→`/trade`→`/dividend` 이동 시마다 입력창 포커스로 expand해 대화 1건이 계속 유지됨을 확인. 375px 모바일에서 collapsed 상태가 콘텐츠를 가리지 않음(스크롤 최하단에서 disclaimer 완전히 노출 확인)과 expanded 상태가 뷰포트의 약 45%(364px/812px)만 차지해 화면을 과하게 가리지 않음을 확인. 콘솔 에러 없음.
 - feature_list.json Stage 14 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-11 (Stage 15)
+- feature_list.json에 Stage 15(deploy-and-verify) 신규 추가(0~14 미변경).
+- rate-limit 재확인: 5개 API 라우트 모두 `checkRateLimit(getClientIp(request))` 정상 존재. `npm audit`: 신규 취약점 없음, 기존 postcss 모더레이트 1건만 잔존.
+- `npm run build`/`npm run lint`/`npm run test`(69개, 스모크 7개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright, 실제 Anthropic API 호출): `/`에서 챗봇이 collapsed 상태로 시작함을 확인 → "비과세 한도 정확히 얼마예요?" 질문에 "일반형 200만원, 서민형/농어민형 400만원"으로 정확히 답하고 500만원/1,000만원은 "국회에서 논의 중이나 아직 통과되지 않음"으로 정확히 구분하는 응답을 실제 배포 환경에서 재확인(로컬과 동일하게 정상). 접기 버튼으로 collapsed 복귀 확인. `/trade`로 이동 시 챗봇이 collapsed 상태로 리셋되지만(예상된 동작 — isExpanded는 로컬 UI 상태) 대화 메시지 자체는 Context에 그대로 유지됨을 확인(1건). `/dividend`로 이동해도 메시지 1건 계속 유지 확인. 375px 모바일에서 collapsed/expanded 모두 수평 오버플로우 없음, 콘솔 에러 없음 확인.
+- feature_list.json Stage 15 done 처리, 커밋.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
