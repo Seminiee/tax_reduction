@@ -77,7 +77,6 @@ export interface DividendSimulationContext {
     /** Stage 12: 위 두 입력방식 중 무엇을 골랐든 실제로 투입된 금액(나머지 내림 반영) */
     actualInvestedAmountKrw: number;
     isaType: string;
-    otherFinancialIncomeKrw: number;
   };
   response: {
     totalDividendKrw: number;
@@ -143,8 +142,8 @@ export function buildCurrentSimulationContext(sim: ChatCurrentSimulation): strin
   if (sim.kind === "dividend") {
     const { request, response } = sim;
     return `[현재 시뮬레이션 조건 — 배당금 계산기]
-사용자가 방금 아래 조건으로 배당금 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며, 매수원가 정보가 없어 ISA 연간 납입한도 초과 로직은 다루지 않습니다.
-- 종목: ${request.stockName}, 현재 주가: ${request.currentPriceKrw.toLocaleString("ko-KR")}원, 수량: ${request.quantity.toLocaleString("ko-KR")}주(${request.inputMode === "amount" ? "총매수금액으로 입력, 나머지는 매수 불가하여 내림 처리됨" : "수량 직접 입력"}), 실제 투입금액: ${request.actualInvestedAmountKrw.toLocaleString("ko-KR")}원, 주당 배당금: ${request.dividendPerShareKrw.toLocaleString("ko-KR")}원, ISA 유형: ${request.isaType}, 다른 금융소득: ${request.otherFinancialIncomeKrw.toLocaleString("ko-KR")}원
+사용자가 방금 아래 조건으로 배당금 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며, 매수원가 정보가 없어 ISA 연간 납입한도 초과 로직은 다루지 않습니다. 배당금 외 다른 금융소득은 고려하지 않으므로 항상 국내 배당소득세율(15.4%) 기준으로 계산됩니다.
+- 종목: ${request.stockName}, 현재 주가: ${request.currentPriceKrw.toLocaleString("ko-KR")}원, 수량: ${request.quantity.toLocaleString("ko-KR")}주(${request.inputMode === "amount" ? "총매수금액으로 입력, 나머지는 매수 불가하여 내림 처리됨" : "수량 직접 입력"}), 실제 투입금액: ${request.actualInvestedAmountKrw.toLocaleString("ko-KR")}원, 주당 배당금: ${request.dividendPerShareKrw.toLocaleString("ko-KR")}원, ISA 유형: ${request.isaType}
 - 총 배당금: ${response.totalDividendKrw.toLocaleString("ko-KR")}원, 금융소득종합과세 대상 여부: ${response.isComprehensiveTaxationTriggered ? "예" : "아니오"}(적용 세율 ${(response.marginalTaxRateApplied * 100).toFixed(1)}%)
 - 일반계좌 실수령액: ${response.generalNetReceivedKrw.toLocaleString("ko-KR")}원 (세금 ${response.generalDividendTaxKrw.toLocaleString("ko-KR")}원)
 - ISA 실수령액: ${response.isaNetReceivedKrw.toLocaleString("ko-KR")}원 (세금 ${response.isaDividendTaxKrw.toLocaleString("ko-KR")}원), 세금 이득(일반-ISA): ${response.taxSavingKrw.toLocaleString("ko-KR")}원`;

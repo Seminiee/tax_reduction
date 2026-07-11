@@ -76,7 +76,6 @@ const SAMPLE_DIVIDEND_SIMULATION: ChatCurrentSimulation = {
     inputMode: "quantity",
     actualInvestedAmountKrw: 11_500_000,
     isaType: "general",
-    otherFinancialIncomeKrw: 0,
   },
   response: {
     totalDividendKrw: 10_000_000,

@@ -23,11 +23,7 @@ describe("parseDividendInput (Anthropic API 목 처리)", () => {
         currentPriceKrw: 0,
         totalPurchaseAmountKrw: 0,
         dividendPerShareKrw: 2000,
-        otherFinancialIncomeKrw: 0,
-        assumedFields: [
-          { field: "currentPriceKrw", reason: "주가 언급이 없어 0으로 가정" },
-          { field: "otherFinancialIncomeKrw", reason: "다른 금융소득 언급이 없어 0으로 가정" },
-        ],
+        assumedFields: [{ field: "currentPriceKrw", reason: "주가 언급이 없어 0으로 가정" }],
       },
     });
 
@@ -55,8 +51,7 @@ describe("parseDividendInput (Anthropic API 목 처리)", () => {
         currentPriceKrw: 115_000,
         totalPurchaseAmountKrw: 30_000_000,
         dividendPerShareKrw: 3000,
-        otherFinancialIncomeKrw: 0,
-        assumedFields: [{ field: "otherFinancialIncomeKrw", reason: "다른 금융소득 언급이 없어 0으로 가정" }],
+        assumedFields: [],
       },
     });
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import styles from "./DividendCalculator.module.css";
 
 export const QUANTITY_MIN = 1;
@@ -28,8 +27,6 @@ interface ScenarioFormProps {
   resolvedQuantity: number;
   actualInvestedAmountKrw: number;
   requestedAmountKrw?: number;
-  otherFinancialIncomeKrw: number;
-  onOtherFinancialIncomeKrwChange: (value: number) => void;
 }
 
 export function ScenarioForm({
@@ -48,11 +45,7 @@ export function ScenarioForm({
   resolvedQuantity,
   actualInvestedAmountKrw,
   requestedAmountKrw,
-  otherFinancialIncomeKrw,
-  onOtherFinancialIncomeKrwChange,
 }: ScenarioFormProps) {
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-
   const quantitySliderPercent = ((quantity - QUANTITY_MIN) / (QUANTITY_MAX - QUANTITY_MIN)) * 100;
   const totalPurchaseAmountManwon = totalPurchaseAmountKrw / MANWON;
   const amountSliderPercent =
@@ -189,34 +182,6 @@ export function ScenarioForm({
           )}
         </div>
       )}
-
-      <div className="pt-5 mt-5 border-t border-slate-100">
-        <button
-          type="button"
-          onClick={() => setIsAdvancedOpen((v) => !v)}
-          className="w-full flex justify-between items-center text-sm font-semibold text-slate-600"
-        >
-          <span>고급설정 — 다른 금융소득</span>
-          <span className="text-xs text-slate-400">{isAdvancedOpen ? "접기 ▲" : "펼치기 ▼"}</span>
-        </button>
-        {isAdvancedOpen && (
-          <div className="mt-3">
-            <label className="block text-xs text-slate-500 font-medium mb-1.5">
-              이 배당 외 연간 다른 금융소득 (원)
-            </label>
-            <input
-              type="number"
-              value={otherFinancialIncomeKrw}
-              onChange={(e) => onOtherFinancialIncomeKrwChange(parseFloat(e.target.value) || 0)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:border-amber-400 focus:bg-white transition-colors"
-            />
-            <p className="text-xs text-slate-400 mt-1.5">
-              0(기본값)이면 이 배당금만으로는 종합과세를 판단하지 않고 15.4% 고정 세율을 적용합니다.
-              값을 입력하면 이 배당금과 합산해 금융소득종합과세 대상 여부를 판단합니다.
-            </p>
-          </div>
-        )}
-      </div>
     </section>
   );
 }

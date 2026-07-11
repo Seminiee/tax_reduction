@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **다음 작업**: 없음 (Stage 0~17 전부 완료, 프로덕션 재배포 완료). 추가 요청 시 이 로그와 skills.md 확인 필요 항목부터 참고
-- **마지막 업데이트**: 2026-07-11 (Stage 17 완료, 프로덕션 재배포 완료)
+- **완료**: Stage 18 (dividend-simplify — /dividend에서 다른 금융소득 고급설정 UI 제거, otherFinancialIncomeKrw 항상 0 고정). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-11 (Stage 18 완료)
 
 ## 스테이지 체크리스트
 
@@ -28,6 +28,7 @@
 | 15 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 16 | chatbot-scope-eligibility (ISA 가입 자격 요건 챗봇 답변 범위 추가) | done |
 | 17 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
+| 18 | dividend-simplify (다른 금융소득 고급설정 UI 제거) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -234,5 +235,18 @@
 - `npm run build`/`npm run lint`/`npm run test`(71개, 스모크 9개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
 - 프로덕션 검증(Playwright, 실제 Anthropic API 호출): "서민형 ISA 가입 소득 기준이 얼마예요?" → 총급여 5,000만원 이하/종합소득 3,800만원 이하로 정확히 답변. "국내투자형 ISA는 언제 생기나요?" → 국회 미통과·시행 여부 미확정으로 정확히 안내. 로컬과 동일한 정확도로 배포 환경에서도 재확인됨. `/`→`/trade`→`/dividend` 이동 시마다 하단 바 챗봇이 정상적으로 expand되고 대화 메시지(2건)가 계속 유지됨을 확인. 콘솔 에러 없음.
 - feature_list.json Stage 17 done 처리, 커밋.
+
+### 2026-07-11 (Stage 18)
+- feature_list.json에 Stage 18(dividend-simplify) 신규 추가(0~17 미변경). 마지막 스테이지가 17로 확정되어 있어 번호 공백 없이 진행.
+- app/dividend: `ScenarioForm.tsx`에서 "다른 금융소득" 접이식 고급설정 UI(토글 버튼 + input) 전체 제거. `lib/tax/dividend-calculator.ts`의 `calculateDividend` 함수 시그니처와 기존 단위테스트(otherFinancialIncomeKrw로 종합과세 대상되는 케이스 포함)는 전혀 건드리지 않음 — `DividendCalculator.tsx`에서 `otherFinancialIncomeKrw`를 `useState` 대신 고정 `const 0`으로 바꿔 호출부에서만 항상 0을 전달하도록 변경.
+- `Disclaimer.tsx`에 상시 노출 안내문구 추가: "이 계산은 배당금 외 다른 금융소득은 고려하지 않습니다. 다른 금융소득과 합산 시 종합과세 대상이 될 수 있습니다." (기존 ISA 3년 의무유지 문구와 동일한 톤/위치).
+- `lib/ai/parse-dividend-input.ts` 스키마 v3: `otherFinancialIncomeKrw` 필드 제거(stockName/quantity/currentPriceKrw/totalPurchaseAmountKrw/dividendPerShareKrw/assumedFields만 유지), 시스템 프롬프트에서도 관련 불릿 제거. `NaturalLanguageInputCard.tsx` placeholder를 "예: 리얼티인컴 250주 보유, 주가 6만원, 주당 배당금 1,000원"으로 갱신.
+- `lib/ai/chat-with-tax-assistant.ts`: `DividendSimulationContext.request`에서 `otherFinancialIncomeKrw` 제거, `buildCurrentSimulationContext`의 dividend 분기 템플릿에서 해당 필드를 빼고 "배당금 외 다른 금융소득은 고려하지 않으므로 항상 국내 배당소득세율(15.4%) 기준으로 계산됩니다" 문장을 추가.
+- PROMPTS.md: parse-dividend v3 섹션 신규 추가(v1/v2 원문 보존), `buildCurrentSimulationContext`용 배당금 계산기 템플릿도 v3로 갱신(같은 방식으로 otherFinancialIncomeKrw 플레이스홀더 제거 + 안내 문장 추가).
+- skills.md 7절 갱신: 사용자가 요청한 원안 문구("배당금 자체가 2천만원을 넘으면 종합과세 로직은 여전히 정상 작동하지만...")는 실제 코드와 어긋남을 확인해 정확한 버전으로 대체 기록. `calculateDividend`의 `isComprehensiveTaxationTriggered = otherFinancialIncomeKrw > 0 && ...`가 `otherFinancialIncomeKrw > 0`을 전제조건으로 하므로, 이 값이 항상 0으로 고정되면 **배당금 자체가 2천만원을 넘어도 종합과세는 트리거되지 않고 항상 15.4% 고정 세율**이 적용됨을 명시.
+- 관련 스모크테스트(`lib/ai/chat-with-tax-assistant.smoke.test.ts`) 확인 결과 otherFinancialIncomeKrw/dividend 관련 참조 없어 추가 정리 불필요. `lib/ai/chat-with-tax-assistant.test.ts`의 `SAMPLE_DIVIDEND_SIMULATION`에서 타입 정합성 위해 `otherFinancialIncomeKrw: 0,` 라인 제거, `lib/ai/parse-dividend-input.test.ts` 목 데이터에서도 동일 필드 제거.
+- `npm run test`(71개 통과, 스모크 9개 스킵 — `dividend-calculator.test.ts` 10개 전부 포함해 그대로 통과), `npm run lint`, `npm run build` 모두 클린.
+- 로컬 dev 서버 + Playwright로 `/dividend` 확인: 고급설정 섹션/버튼 완전히 사라짐, 새 안내문구 노출 확인, AI 자연어 입력에 "리얼티인컴 250주 보유, 주가 6만원, 주당 배당금 1,000원" 입력 시 실제 Anthropic API 호출로 종목명/수량/현재주가/주당배당금 4개 필드가 정확히 채워짐(총매수금액 ₩15,000,000 자동 계산) 확인.
+- feature_list.json Stage 18 done 처리, 커밋 예정. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

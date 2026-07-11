@@ -32,7 +32,7 @@ export function NaturalLanguageInputCard({ onApply }: NaturalLanguageInputCardPr
       <textarea
         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors resize-none"
         rows={2}
-        placeholder="예: 코카콜라 100주 보유, 주당 배당금 2000원, 다른 금융소득은 없어"
+        placeholder="예: 리얼티인컴 250주 보유, 주가 6만원, 주당 배당금 1,000원"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />

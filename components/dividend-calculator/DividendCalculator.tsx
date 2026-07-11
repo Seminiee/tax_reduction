@@ -17,7 +17,9 @@ export function DividendCalculator() {
   const [quantity, setQuantity] = useState(100);
   const [totalPurchaseAmountKrw, setTotalPurchaseAmountKrw] = useState(10_000_000);
   const [isaType, setIsaType] = useState<TwoWayIsaType>("general");
-  const [otherFinancialIncomeKrw, setOtherFinancialIncomeKrw] = useState(0);
+  // Stage 18: "다른 금융소득" 입력 UI를 제거하면서 항상 0으로 고정해 전달한다.
+  // calculateDividend의 시그니처와 계산 로직 자체는 건드리지 않는다(lib/tax 테스트 그대로 유지).
+  const otherFinancialIncomeKrw = 0;
 
   const quantityResolution = useMemo(
     () =>
@@ -55,7 +57,6 @@ export function DividendCalculator() {
 
     setStockName(data.stockName);
     setDividendPerShareKrw(data.dividendPerShareKrw);
-    setOtherFinancialIncomeKrw(data.otherFinancialIncomeKrw);
     if (data.currentPriceKrw > 0) {
       setCurrentPriceKrw(data.currentPriceKrw);
     }
@@ -82,7 +83,6 @@ export function DividendCalculator() {
         inputMode,
         actualInvestedAmountKrw: quantityResolution.actualInvestedAmountKrw,
         isaType,
-        otherFinancialIncomeKrw,
       },
       response: {
         totalDividendKrw: result.totalDividendKrw,
@@ -104,7 +104,6 @@ export function DividendCalculator() {
       inputMode,
       quantityResolution.actualInvestedAmountKrw,
       isaType,
-      otherFinancialIncomeKrw,
       result,
     ]
   );
@@ -144,8 +143,6 @@ export function DividendCalculator() {
               resolvedQuantity={quantityResolution.quantity}
               actualInvestedAmountKrw={quantityResolution.actualInvestedAmountKrw}
               requestedAmountKrw={quantityResolution.requestedAmountKrw}
-              otherFinancialIncomeKrw={otherFinancialIncomeKrw}
-              onOtherFinancialIncomeKrwChange={setOtherFinancialIncomeKrw}
             />
           </div>
 

@@ -236,6 +236,20 @@
         "세 페이지(/, /trade, /dividend) 하단 바 챗봇 + 히스토리 유지 최종 확인"
       ],
       "done_criteria": "rate-limit/npm audit 이상 없음 + 프로덕션 배포 완료 + 배포 URL에서 두 ISA 질문 정답 확인 + 세 페이지 챗봇 하단 바/히스토리 정상 확인"
+    },
+    {
+      "id": 18,
+      "name": "dividend-simplify",
+      "status": "done",
+      "tasks": [
+        "app/dividend에서 '다른 금융소득' 접이식 고급설정 UI 제거, calculateDividend 시그니처/기존 테스트는 미변경(호출부에서 otherFinancialIncomeKrw: 0 고정 전달)",
+        "결과 영역 근처에 '이 계산은 배당금 외 다른 금융소득은 고려하지 않는다' 상시 안내문구 추가",
+        "app/api/parse-dividend 스키마 v3: otherFinancialIncomeKrw 제거, AI 입력 placeholder를 종목명+수량+주가+주당배당금 예시로 갱신",
+        "PROMPTS.md에 parse-dividend v3 원문 추가(v1/v2 보존), ChatCurrentSimulation dividend 컨텍스트/템플릿에서 otherFinancialIncomeKrw 정리",
+        "skills.md 7절에 스코프 축소 기록 (실제 calculateDividend 동작과 일치하도록: otherFinancialIncomeKrw 항상 0 고정 시 배당금 단독 초과에도 종합과세 미트리거, 고정 15.4%)",
+        "otherFinancialIncomeKrw UI 입력을 전제로 한 스모크테스트/컴포넌트 정리, lib/tax 레벨 테스트는 그대로 유지"
+      ],
+      "done_criteria": "/dividend에 고급설정 UI 없음 + 안내문구 노출 + AI입력이 4개 필드 기준으로 동작 + 기존 전체 테스트(dividend-calculator.test.ts 포함) 그대로 통과 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

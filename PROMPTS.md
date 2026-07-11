@@ -175,6 +175,37 @@ assumedFields: { field: string; reason: string }[]
 
 isaType은 v1과 마찬가지로 v2에도 없다(화면 토글 값 유지 원칙 그대로).
 
+### v3 (Stage 18: "다른 금융소득" 입력 제거)
+
+`/dividend`의 "다른 금융소득" 접이식 고급설정 UI를 제거하면서(스코프 축소, skills.md 7절 참고) `otherFinancialIncomeKrw` 필드도 스키마에서 함께 제거했다. `lib/tax/dividend-calculator.ts`의 `calculateDividend` 함수 시그니처 자체는 건드리지 않았고(기존 단위테스트 그대로 통과), 페이지 컴포넌트가 호출 시 `otherFinancialIncomeKrw: 0`을 고정으로 넘긴다. 위 v1/v2 원문은 지원서 이력 확인용으로 그대로 남겨두고, 실제 코드(`lib/ai/parse-dividend-input.ts`)는 아래 v3 원문을 사용한다.
+
+#### 시스템 프롬프트 원문 (v3)
+
+```
+당신은 한국 세금 시뮬레이터의 배당금 계산기 입력 파서입니다. 사용자가 자유롭게 서술한 배당 보유 계획을 읽고 아래 필드를 채워 JSON으로 반환하세요.
+
+- stockName: 종목명(문자열). 언급이 없으면 "종목"으로 가정하세요.
+- quantity: 보유 수량(정수). 사용자가 "300주"처럼 수량을 직접 언급했을 때만 채우세요. 총 매수금액으로만 언급했다면 0으로 두세요.
+- currentPriceKrw: 현재 주가(원 단위 정수). 언급이 없으면 0으로 가정하세요.
+- totalPurchaseAmountKrw: 총 매수금액(원 단위 정수). 사용자가 "3천만원어치"처럼 금액으로 언급했을 때만 채우세요. 수량으로 언급했다면 0으로 두세요. quantity와 totalPurchaseAmountKrw를 동시에 채우지 마세요 — 사용자가 말한 쪽 하나만 채우고 나머지는 0으로 두세요.
+- dividendPerShareKrw: 주당 배당금(원 단위 정수).
+
+사용자가 명시적으로 말하지 않아 기본값(0 포함)으로 채운 모든 필드는 assumedFields 배열에 {field, reason} 형태로 반드시 포함하세요. reason은 왜 그 기본값을 선택했는지 한국어로 간단히 설명하세요. 사용자가 준 정보로 확정할 수 있는 필드는 assumedFields에 넣지 마세요.
+```
+
+#### 출력 스키마 (v3, zod, `ParsedDividendInputSchema`)
+
+```
+stockName: string
+quantity: number
+currentPriceKrw: number
+totalPurchaseAmountKrw: number
+dividendPerShareKrw: number
+assumedFields: { field: string; reason: string }[]
+```
+
+v2 대비 `otherFinancialIncomeKrw` 필드가 제거됐다. isaType은 v1/v2와 마찬가지로 v3에도 없다(화면 토글 값 유지 원칙 그대로). AI 입력창의 placeholder도 종목명+수량+주가+주당배당금 조합 예시("리얼티인컴 250주 보유, 주가 6만원, 주당 배당금 1,000원")로 갱신했다.
+
 ---
 
 ## 2. 결과 해설 (`/api/explain`)
@@ -363,6 +394,19 @@ Stage 12에서 `/dividend`에 현재 주가 입력과 "수량으로 입력"/"총
 [현재 시뮬레이션 조건 — 배당금 계산기]
 사용자가 방금 아래 조건으로 배당금 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며, 매수원가 정보가 없어 ISA 연간 납입한도 초과 로직은 다루지 않습니다.
 - 종목: {stockName}, 현재 주가: {currentPriceKrw}원, 수량: {quantity}주({수량 직접 입력 | 총매수금액으로 입력, 나머지는 매수 불가하여 내림 처리됨}), 실제 투입금액: {actualInvestedAmountKrw}원, 주당 배당금: {dividendPerShareKrw}원, ISA 유형: {isaType}, 다른 금융소득: {otherFinancialIncomeKrw}원
+- 총 배당금: {totalDividendKrw}원, 금융소득종합과세 대상 여부: {예/아니오}(적용 세율 {marginalTaxRateApplied}%)
+- 일반계좌 실수령액: {generalNetReceivedKrw}원 (세금 {generalDividendTaxKrw}원)
+- ISA 실수령액: {isaNetReceivedKrw}원 (세금 {isaDividendTaxKrw}원), 세금 이득(일반-ISA): {taxSavingKrw}원
+```
+
+#### 배당금 계산기 템플릿 v3 (Stage 18: "다른 금융소득" 입력 제거)
+
+Stage 18에서 "다른 금융소득" 접이식 고급설정 UI를 제거하면서 `DividendSimulationContext.request`에서 `otherFinancialIncomeKrw` 필드 자체를 없앴다(항상 0으로 고정되어 더 이상 챗봇에게 알려줄 만한 정보가 아니기 때문). 위 v1/v2 템플릿은 그대로 남겨두고, 실제 코드는 아래 v3 템플릿을 사용한다.
+
+```
+[현재 시뮬레이션 조건 — 배당금 계산기]
+사용자가 방금 아래 조건으로 배당금 계산기를 실행했습니다. 관련 질문이면 이 조건과 결과를 참조해서 답하세요. 이 도구는 ISA 3년 의무유지 조건을 충족했다고 가정하며, 매수원가 정보가 없어 ISA 연간 납입한도 초과 로직은 다루지 않습니다. 배당금 외 다른 금융소득은 고려하지 않으므로 항상 국내 배당소득세율(15.4%) 기준으로 계산됩니다.
+- 종목: {stockName}, 현재 주가: {currentPriceKrw}원, 수량: {quantity}주({수량 직접 입력 | 총매수금액으로 입력, 나머지는 매수 불가하여 내림 처리됨}), 실제 투입금액: {actualInvestedAmountKrw}원, 주당 배당금: {dividendPerShareKrw}원, ISA 유형: {isaType}
 - 총 배당금: {totalDividendKrw}원, 금융소득종합과세 대상 여부: {예/아니오}(적용 세율 {marginalTaxRateApplied}%)
 - 일반계좌 실수령액: {generalNetReceivedKrw}원 (세금 {generalDividendTaxKrw}원)
 - ISA 실수령액: {isaNetReceivedKrw}원 (세금 {isaDividendTaxKrw}원), 세금 이득(일반-ISA): {taxSavingKrw}원
