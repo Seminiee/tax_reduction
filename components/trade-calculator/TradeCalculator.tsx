@@ -82,6 +82,8 @@ export function TradeCalculator() {
         },
         result: {
           totalInvestKrw: result.totalInvestKrw,
+          // Stage 23: 이전까지 이 필드가 빠져있어 AI가 taxFreeLimitKrw와 혼동하는 원인이 됐다.
+          annualContributionLimitKrw: result.annualContributionLimitKrw,
           isExceedingContributionLimit: result.isExceedingContributionLimit,
           isaQuantity: result.isaQuantity,
           generalQuantity: result.generalQuantity,

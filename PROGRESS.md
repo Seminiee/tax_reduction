@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 22 (explain-v2-field-disambiguation — explain trade 프롬프트를 v3로 갱신, generalOnlyTaxKrw/generalForcedTaxKrw 혼동 수정). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-12 (Stage 22 완료)
+- **완료**: Stage 23 (explain-v2-field-audit — trade explain 프롬프트를 v4로 갱신, taxFreeLimitKrw/annualContributionLimitKrw 혼동 수정, 필드 전수 점검). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-12 (Stage 23 완료)
 
 ## 스테이지 체크리스트
 
@@ -33,6 +33,7 @@
 | 20 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 21 | hold-trade-merge (`/`를 매매차익 UI로 통합, `/trade` 리다이렉트) | done |
 | 22 | explain-v2-field-disambiguation (generalOnlyTaxKrw/generalForcedTaxKrw 혼동 수정) | done |
+| 23 | explain-v2-field-audit (taxFreeLimitKrw/annualContributionLimitKrw 혼동 수정) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -297,5 +298,17 @@
 - `lib/ai/explain-simulation-result.smoke.test.ts`: v2와 동일한 한도초과 시나리오로 실제 API 재호출 후 응답을 `console.log`로 남기고 "매 실행마다 사람이 직접 읽고 확인" 주석을 남긴 테스트, 한도 이내(연간납입한도 미만, `generalQuantity: 0`) 일반 케이스가 여전히 정상 동작하는지 확인하는 회귀 테스트 추가. 실제 `RUN_AI_SMOKE_TEST=1`로 3개 전부 통과 확인.
 - `npm run test`(80개 통과 — 기존 78개 + 신규 2개, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린.
 - feature_list.json Stage 22 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 23)
+- feature_list.json에 Stage 23(explain-v2-field-audit) 신규 추가(0~22 미변경).
+- **버그 원인**: Stage 22 실제 응답에서 "비과세 한도 2,000만 원"이라는 새 오류가 발견됨(`taxFreeLimitKrw` 실제값 200만원을 연간 납입한도 2,000만원과 자릿수 혼동). 조사 결과 근본 원인은 `annualContributionLimitKrw`(연간 납입한도, `lib/tax/trade-calculator.ts`의 `calculateTrade`가 정상 반환하는 필드)가 `components/trade-calculator/TradeCalculator.tsx`의 explain 호출부에서 아예 누락되어 전달되지 않고 있었던 것 — AI가 실제 숫자 없이 시스템 프롬프트의 "2,000만원" 텍스트만으로 유추해야 했다.
+- `lib/ai/explain-simulation-result.ts`: `TradeExplainInput.result`에 `annualContributionLimitKrw: number` 추가. `TradeCalculator.tsx`가 `result.annualContributionLimitKrw`를 실제로 explain 호출에 포함하도록 수정. `TRADE_RESULT_FIELD_DESCRIPTIONS`에 `taxFreeLimitKrw`("수익 기준", 200/400만원)와 `annualContributionLimitKrw`("투자 원금 기준", 2,000만원) 설명을 사용자가 요청한 문구 그대로 추가. `EXPLAIN_SYSTEM_PROMPT_TRADE`(v4)에 규칙 7 추가("비과세 한도"는 taxFreeLimitKrw, "납입한도"는 annualContributionLimitKrw를 정확히 참조).
+- **필드 전수 점검(item 2)**: `buildTradeExplainPayload`에 전달되는 모든 필드(input 6개 + result 12개)를 대조. `quantity`(input, 총 수량) vs `isaQuantity`/`generalQuantity`(result, 부분합)는 이름이 비슷해 `isaQuantity`/`generalQuantity` 설명에 "quantity에서 분할된 것"이라는 관계를 보강(새 필드 추가는 아님). 그 외 실제로 수정이 필요한 새 혼동 쌍은 발견되지 않음.
+- **hold(v1)/챗봇 점검(item 5)**: hold 엔진(`general-account.ts`/`isa-account.ts`)에는 `annual_contribution_limit_krw` 개념 자체가 없어(연간 납입 개념이 존재하지 않는 거치식 모델) 혼동할 짝이 없음 — 수정 불필요. 챗봇(`chat-with-tax-assistant.ts`)의 trade 동적 컨텍스트 템플릿은 `taxFreeLimitKrw` 숫자 자체를 아예 전달하지 않고(연간 납입한도 2,000만원만 고정 텍스트로 언급), 비과세 한도는 시스템 프롬프트의 별도 문장에서만 설명되므로 explain v2/v3 같은 JSON 필드 혼동 패턴이 구조적으로 발생하지 않음 — 이미 잘 구분되어 있어 억지로 바꾸지 않음.
+- PROMPTS.md 2절에 v4 섹션 추가(v1~v3 원문 보존): 수정된 프롬프트/payload/fieldDescriptions 전체 + 전수 점검 결과 + v2/v3와 완전히 동일한 입력값으로 실제 API를 두 번 재호출한 응답(단위테스트용 1회, 스모크테스트용 1회)을 "비과세 한도" 언급 문장 위주로 문장 단위 확인. 두 번 모두 "비과세 한도 200만원"과 "ISA 연간 납입한도 2,000만원"이 서로 다른 문장에서 정확한 자릿수로 등장함을 확인 — v3의 오류가 해소됨.
+- CLAUDE.md 절대 규칙에 6번 추가: "AI 프롬프트에 숫자 필드를 새로 넘길 때는... 반드시 fieldDescriptions 패턴으로 의미를 명시한다. 이 프로젝트에서 이미 3차례(ISA 한도 상충, generalOnly/generalForced, taxFreeLimit/납입한도) 이 유형의 버그가 발생했다."
+- `lib/ai/explain-simulation-result.test.ts`/`.smoke.test.ts`에 `annualContributionLimitKrw` 반영 + taxFreeLimitKrw/annualContributionLimitKrw 구분 확인 테스트 2건 추가. 실제 `RUN_AI_SMOKE_TEST=1`로 3개 전부 통과 확인(로그로 응답 원문 남김).
+- `npm run test`(82개 통과 — 기존 80개 + 신규 2개, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린. (참고: `npx tsc --noEmit`로 직접 검사하면 `chat-with-tax-assistant.test.ts`에 무관한 사전 존재 타입 오류가 하나 있으나 `git stash`로 확인한 결과 Stage 23 변경 이전부터 있던 것이고 `npm run build`가 항상 사용해온 검증 방식에서는 걸리지 않아 이번 스코프에서 다루지 않음.)
+- feature_list.json Stage 23 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

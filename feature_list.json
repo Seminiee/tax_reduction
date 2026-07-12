@@ -304,6 +304,21 @@
         "스모크 테스트: 한도초과 시나리오 실제 응답 로그 + 사람 확인 주석, 한도 이내 일반 케이스 회귀 확인 추가"
       ],
       "done_criteria": "한도초과 시나리오에서 AI 설명이 generalOnlyTaxKrw/generalForcedTaxKrw를 혼동하지 않고 구분 서술, 기존 전체 테스트 통과 (재배포는 사용자 확인 후 별도 진행)"
+    },
+    {
+      "id": 23,
+      "name": "explain-v2-field-audit",
+      "status": "done",
+      "tasks": [
+        "TradeExplainInput.result에 annualContributionLimitKrw 추가(현재 payload에 아예 누락돼있던 것이 taxFreeLimitKrw 혼동의 근본 원인) + TradeCalculator.tsx에서 실제로 전달",
+        "fieldDescriptions에 taxFreeLimitKrw(비과세 한도, 수익 기준)와 annualContributionLimitKrw(연간 납입한도, 투자원금 기준) 설명 추가",
+        "buildTradeExplainPayload의 모든 필드 재점검, 추가 혼동 쌍 여부 확인",
+        "EXPLAIN_SYSTEM_PROMPT_TRADE v4로 갱신(v1~v3 보존)",
+        "CLAUDE.md에 fieldDescriptions 원칙 규칙 추가",
+        "explain v1(hold)/챗봇에도 같은 위험이 있는지 점검",
+        "동일 한도초과 시나리오로 실제 API 재호출해 비과세 한도/납입한도가 문장 단위로 정확히 구분되는지 확인"
+      ],
+      "done_criteria": "한도초과 시나리오에서 비과세 한도(200만원 등)와 납입한도(2,000만원)가 문장 단위로 정확히 구분되어 서술, 기존 전체 테스트 통과 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

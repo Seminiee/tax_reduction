@@ -40,6 +40,7 @@ const SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT: ExplainSimulationInput = {
   },
   result: {
     totalInvestKrw: 23_000_000,
+    annualContributionLimitKrw: 20_000_000,
     isExceedingContributionLimit: true,
     isaQuantity: 173,
     generalQuantity: 27,
@@ -68,6 +69,7 @@ const SAMPLE_TRADE_INPUT_WITHIN_LIMIT: ExplainSimulationInput = {
   },
   result: {
     totalInvestKrw: 11_500_000,
+    annualContributionLimitKrw: 20_000_000,
     isExceedingContributionLimit: false,
     isaQuantity: 100,
     generalQuantity: 0,
@@ -90,16 +92,18 @@ describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제
     expect(result).not.toContain("무조건");
   }, 30_000);
 
-  // Stage 22: generalOnlyTaxKrw/generalForcedTaxKrw 혼동 여부는 "두 숫자가 서로 다른 문맥에서
-  // 정확히 등장하는지" 같은 의미론적 판단이 필요해 자동 assertion만으로 완전히 검증하기 어렵다.
-  // 그래서 응답 원문을 콘솔에 로그로 남기고, PROMPTS.md 2절 v3에 사람이 문장 단위로 직접 읽고
-  // 두 필드가 혼동되지 않았음을 확인한 기록을 남겼다(이 테스트 실행 시점의 응답이 아니라
-  // PROMPTS.md에 박제된 응답을 기준으로 확인했으므로, 재실행 시 응답이 달라질 수 있다는 점에
-  // 유의 — 매 실행마다 사람이 다시 읽고 확인하는 것을 권장한다).
-  it("kind: trade, 한도초과 케이스 — 응답을 로그로 남기고 사람이 직접 확인한다 (Stage 22 v3)", async () => {
+  // Stage 22/23: generalOnlyTaxKrw/generalForcedTaxKrw 혼동, taxFreeLimitKrw/
+  // annualContributionLimitKrw 혼동 여부는 모두 "숫자가 어느 문맥에서 어떤 크기로 등장하는지"
+  // 같은 의미론적 판단이 필요해 자동 assertion만으로 완전히 검증하기 어렵다. 그래서 응답 원문을
+  // 콘솔에 로그로 남기고, PROMPTS.md 2절 v3/v4에 사람이 문장 단위로 직접 읽고 (1) 두 세금
+  // 필드가 혼동되지 않았는지, (2) "비과세 한도"가 언급된 모든 문장이 taxFreeLimitKrw(200만원 등)를
+  // 정확히 참조하고 annualContributionLimitKrw(2,000만원)와 섞이지 않았는지를 확인한 기록을
+  // 남겼다(이 테스트 실행 시점의 응답이 아니라 PROMPTS.md에 박제된 응답을 기준으로 확인했으므로,
+  // 재실행 시 응답이 달라질 수 있다는 점에 유의 — 매 실행마다 사람이 다시 읽고 확인하는 것을 권장한다).
+  it("kind: trade, 한도초과 케이스 — 응답을 로그로 남기고 사람이 직접 확인한다 (Stage 22/23)", async () => {
     const result = await explainSimulationResult(SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT);
 
-    console.log("[Stage 22 스모크 — 한도초과 케이스 실제 응답]\n" + result);
+    console.log("[Stage 23 스모크 — 한도초과 케이스 실제 응답]\n" + result);
 
     expect(result.length).toBeGreaterThan(0);
     expect(result).not.toContain("무조건");

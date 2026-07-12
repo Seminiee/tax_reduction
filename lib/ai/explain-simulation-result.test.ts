@@ -50,6 +50,7 @@ const SAMPLE_TRADE_INPUT: ExplainSimulationInput = {
   },
   result: {
     totalInvestKrw: 23_000_000,
+    annualContributionLimitKrw: 20_000_000,
     isExceedingContributionLimit: true,
     isaQuantity: 173,
     generalQuantity: 27,
@@ -126,6 +127,30 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("generalOnlyTaxKrw");
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("generalForcedTaxKrw");
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("fieldDescriptions");
+  });
+
+  it("Stage 23: trade payload에 annualContributionLimitKrw가 포함되고, taxFreeLimitKrw/annualContributionLimitKrw 설명이 명확히 구분된다", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
+    });
+
+    await explainSimulationResult(SAMPLE_TRADE_INPUT);
+
+    const sentPayload = JSON.parse(mockCreate.mock.calls[0][0].messages[0].content);
+
+    expect(sentPayload.result.annualContributionLimitKrw).toBe(20_000_000);
+    expect(sentPayload.fieldDescriptions.taxFreeLimitKrw).toContain("수익");
+    expect(sentPayload.fieldDescriptions.taxFreeLimitKrw).toContain("일반형 200만원");
+    expect(sentPayload.fieldDescriptions.annualContributionLimitKrw).toContain("투자 원금");
+    expect(sentPayload.fieldDescriptions.annualContributionLimitKrw).toContain("2,000만원");
+    expect(sentPayload.fieldDescriptions.taxFreeLimitKrw).not.toBe(
+      sentPayload.fieldDescriptions.annualContributionLimitKrw
+    );
+  });
+
+  it("Stage 23: EXPLAIN_SYSTEM_PROMPT_TRADE에 taxFreeLimitKrw/annualContributionLimitKrw 혼동을 금지하는 규칙이 포함된다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("taxFreeLimitKrw");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("annualContributionLimitKrw");
   });
 
   it("텍스트 블록이 없으면 에러를 던진다", async () => {

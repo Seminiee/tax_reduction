@@ -314,6 +314,69 @@ Stage 21에서 `/`가 거치식(TaxSimulator, 이제 죽은 코드)에서 매매
 - "실제로는 약 14.8만 원만 내게 되어" → `totalTaxKrw`(148,005원), "약 51.2만 원의 절세 효과" → `savedAmountKrw`(511,995원) 모두 정확.
 - 두 세금 개념이 뒤섞이지 않음을 확인했다. 다만 이 응답은 "비과세 한도 2,000만 원"이라는 표현으로 `taxFreeLimitKrw`(실제로는 200만원)를 연간 납입한도(2,000만원)와 다른 자릿수로 잘못 서술한 새로운 오류가 있다 — 이번 스테이지의 스코프(`generalOnlyTaxKrw`/`generalForcedTaxKrw` 구분)는 아니므로 수정하지 않고 발견 사실만 원문과 함께 기록해둔다.
 
+### v4 (Stage 23: `taxFreeLimitKrw`/`annualContributionLimitKrw` 혼동 수정)
+
+바로 위 v3의 실제 응답에서 발견된 새 오류("비과세 한도 2,000만 원")를 조사한 결과, 근본 원인은 `annualContributionLimitKrw`(ISA 연간 납입한도, 2,000만원) 자체가 payload에 아예 누락되어 있었다는 것이었다 — `lib/tax/trade-calculator.ts`의 `calculateTrade`는 이 값을 정상적으로 반환하지만, `components/trade-calculator/TradeCalculator.tsx`의 explain 호출부가 이 필드를 빠뜨리고 전달하지 않았다. AI는 실제 숫자 없이 시스템 프롬프트 안의 "2,000만원"이라는 텍스트만으로 유추해야 했고, 그 결과 `taxFreeLimitKrw`(200만원)의 자릿수를 잘못 서술한 것으로 추정된다. `TradeExplainInput.result`에 `annualContributionLimitKrw` 필드를 추가하고 실제로 전달하도록 고쳤으며, `fieldDescriptions`에 두 한도의 차이("수익 기준" vs "투자 원금 기준")를 명시하고 시스템 프롬프트에 규칙 7을 추가했다.
+
+```
+당신은 세금 시뮬레이션 결과를 설명하는 한국어 해설가입니다. 아래 규칙을 반드시 지키세요.
+
+1. 결과 JSON을 근거로 왜 이런 세후 금액 차이가 나오는지 설명하세요. 손익통산, 비과세 한도, 분리과세, 종합과세 중 실제로 관련 있는 키워드를 최소 1개 포함하세요.
+2. 3~5문장의 한국어로 작성하세요.
+3. "무조건 ISA로 가세요", "반드시 ~하세요" 같은 확정적 조언은 절대 쓰지 마세요. 항상 "이 조건에서는 ~", "~일 때는 ~" 같은 조건부 표현을 쓰세요.
+4. verificationStatus에 "미검증"이라는 표현이 포함되어 있다면, 설명 마지막에 세율이 아직 최종 확인되지 않았다는 점을 자연스러운 한 문장으로 언급하세요.
+5. 순수 텍스트만 반환하세요. 마크다운이나 JSON으로 감싸지 마세요.
+6. generalOnlyTaxKrw는 오직 "전량 일반계좌였다면"이라는 가상의 비교 문장에서만 언급하고, ISA 계좌의 실제 세금을 설명할 때는 절대 이 숫자를 쓰지 마세요. 한도초과로 일부 수량이 일반계좌로 강제 전환된 경우, 그 부분에 실제로 부과되는 세금은 generalForcedTaxKrw입니다. 각 필드의 정확한 의미는 함께 전달되는 fieldDescriptions를 참고하세요.
+7. taxFreeLimitKrw(ISA 비과세 한도, 수익 기준, 일반형 200만원/서민형 400만원)와 annualContributionLimitKrw(ISA 연간 납입한도, 투자 원금 기준, 2,000만원)는 완전히 다른 개념이며 절대 같은 숫자로 혼동해 서술하지 마세요. "비과세 한도"를 언급할 때는 반드시 taxFreeLimitKrw 값을, "납입한도"를 언급할 때는 반드시 annualContributionLimitKrw 값을 정확히 참조하세요.
+```
+
+#### 사용자 메시지 payload (v4, `buildTradeExplainPayload` — `annualContributionLimitKrw` 필드 및 그 설명 추가)
+
+```json
+{
+  "input": { "...": "TradeExplainInput.input 그대로" },
+  "result": { "...": "TradeExplainInput.result 그대로 (annualContributionLimitKrw 신규 포함)" },
+  "fieldDescriptions": {
+    "totalInvestKrw": "이번 매수에 투입되는 총 투자금액(원)",
+    "annualContributionLimitKrw": "ISA 계좌의 연간 납입한도. '투자 원금'을 기준으로 한 금액(2,000만원)이며, 비과세 한도(taxFreeLimitKrw)와는 전혀 다른 개념이다. 둘을 절대 혼동하지 마라.",
+    "isExceedingContributionLimit": "annualContributionLimitKrw(연간 납입한도)를 초과했는지 여부",
+    "isaQuantity": "ISA 계좌에 실제로 편입되는 수량(한도 초과 시 한도 이내로 축소됨). 사용자가 요청한 총 수량(quantity)이 isaQuantity와 generalQuantity로 나뉜 것이다.",
+    "generalQuantity": "ISA 연간 납입한도 초과로 일반계좌 규칙이 강제 적용되는 수량. 사용자가 요청한 총 수량(quantity)에서 isaQuantity를 뺀 나머지다.",
+    "taxFreeLimitKrw": "ISA 계좌의 비과세 한도. '수익'을 기준으로 한 금액이며(일반형 200만원, 서민형 400만원), 이 금액까지는 순이익에 세금이 없다. annualContributionLimitKrw(연간 납입한도, 투자 원금 기준)와는 전혀 다른 개념이므로 절대 혼동하지 말 것.",
+    "netGainForIsaKrw": "ISA 편입 수량(isaQuantity) 기준 손익통산 후 순이익(원)",
+    "isaTaxKrw": "ISA 편입 수량(isaQuantity)에 실제로 부과되는 세금 — 비과세 한도(taxFreeLimitKrw) 초과분에 9.9% 분리과세를 적용한 값",
+    "generalForcedTaxKrw": "ISA 연간 납입한도 초과로 강제 전환된 일부 수량(generalQuantity)에 실제로 부과되는 세금. 이 값은 totalTaxKrw(실제 총 세금)에 포함되어 있는 실제 세금이다 — generalOnlyTaxKrw와 절대 혼동하지 말 것.",
+    "generalOnlyTaxKrw": "전량을 일반계좌로 매수했다고 가정했을 때의 가상 세금. 헤드라인의 절세액(savedAmountKrw) 비교 계산에만 쓰이며, 실제로 발생하는 세금이 아니다 — ISA 계좌의 실제 세금을 설명할 때는 이 값을 쓰면 안 된다.",
+    "totalTaxKrw": "실제로 발생하는 총 세금 (isaTaxKrw + generalForcedTaxKrw)",
+    "savedAmountKrw": "전량 일반계좌 가정(generalOnlyTaxKrw) 대비 실제 절세액"
+  },
+  "verificationStatus": "..."
+}
+```
+
+#### 필드 전수 점검 결과 (Stage 23, 이번에 새로 발견된 혼동 쌍이 더 있는지)
+
+`buildTradeExplainPayload`에 전달되는 모든 필드(`input`의 6개 + `result`의 12개)를 하나씩 대조한 결과:
+
+- **근본 원인이자 이번 수정 대상**: `taxFreeLimitKrw`(비과세 한도, 수익 기준, 200만원)와 `annualContributionLimitKrw`(납입한도, 투자원금 기준, 2,000만원) — 위에서 수정.
+- `quantity`(input, 요청한 총 수량) vs `isaQuantity`/`generalQuantity`(result, 부분합) — 이름이 비슷하고 같은 자릿수 범위라 잠재적 혼동 소지가 있다고 판단해, `isaQuantity`/`generalQuantity` 설명에 "quantity에서 분할된 것"이라는 관계를 명시적으로 보강했다(새 필드 추가는 아님).
+- `expectedProfitPerShareKrw`/`expectedLossPerShareKrw`(input, 주당 손익) vs `netGainForIsaKrw`(result, ISA 편입분 기준 손익통산 후 총 순이익) — 이름(Profit/Loss vs Gain)과 스코프(주당 vs 총액)가 이미 충분히 달라 낮은 위험으로 판단, 추가 조치 없음.
+- `isaTaxKrw`/`generalForcedTaxKrw`/`generalOnlyTaxKrw`/`totalTaxKrw` — Stage 22에서 이미 명확히 구분됨, 추가 문제 없음.
+- **점검했고 위 두 항목 외에 실제로 수정이 필요한 새 혼동 쌍은 발견되지 않았다.**
+
+#### 실제 응답 예시 (Stage 23, v2/v3와 완전히 동일한 입력값으로 재호출해 직접 비교)
+
+입력은 v2/v3 예시와 동일: 나스닥 100 ETF, 200주(총 2,300만원, 한도 초과), ISA 편입 173주 / 일반계좌 강제전환 27주. 단, 이번엔 `annualContributionLimitKrw: 20,000,000`이 실제로 payload에 포함되었다.
+
+```
+나스닥 100 ETF를 200주 매수할 때 총 투자금 2,300만원이 ISA 연간 납입한도 2,000만원을 초과하면서, 173주만 ISA 계좌에 편입되고 27주는 일반계좌로 강제 전환되었습니다. ISA 편입분은 비과세 한도 200만원까지는 세금이 없지만 초과분에 대해서는 분리과세 9.9%를 적용받고, 일반계좌 강제 전환분은 별도로 세금이 부과되기 때문에 실제 총 세금이 148,005원이 되었습니다. 이 조건에서는 전량을 일반계좌로 매수했다면 660,000원의 세금이 필요했을 텐데, ISA를 활용함으로써 약 511,995원을 절감할 수 있습니다. 다만 현재 세율이 아직 최종 확인되지 않았으므로 실제 신청 전에 최신 공지를 다시 확인하시는 것이 좋습니다.
+```
+
+**"비과세 한도"가 언급된 문장을 직접 확인한 결과**:
+- "ISA 편입분은 비과세 한도 **200만원**까지는 세금이 없지만" → `taxFreeLimitKrw`(2,000,000원)를 정확한 자릿수로 서술. v3에서 "비과세 한도 2,000만 원"으로 잘못 쓰였던 부분이 이번에 정확히 수정됨.
+- "ISA 연간 납입한도 **2,000만원**을 초과하면서" → `annualContributionLimitKrw`(20,000,000원)가 별도 문장에서 정확한 자릿수로 서술됨.
+- 두 표현이 문장 단위로 완전히 분리되어 등장하며 자릿수가 서로 바뀌어 쓰이지 않았다 — 이번 스테이지의 목표(비과세 한도 vs 납입한도 구분)가 실제 응답에서 달성됨을 확인했다.
+
 ---
 
 ## 3. 세제 Q&A 챗봇 (`/api/chat`, 선택 기능)
