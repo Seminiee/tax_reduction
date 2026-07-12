@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Stage 7: 여러 도구를 오가는 공용 네비게이션. 각 도구 자체 색(거치식=블루, 매매차익=그린,
-// 배당금=앰버)과 무관하게 셸 자체는 중립 슬레이트 색으로 유지한다.
-const TOOLS = [
-  { href: "/", label: "거치 기준 수익" },
-  { href: "/trade", label: "매매차익 계산기" },
+// Stage 7: 여러 도구를 오가는 공용 네비게이션. 각 도구 자체 색과 무관하게 셸 자체는 중립
+// 슬레이트 색으로 유지한다. Stage 21: 거치식/매매차익이 `/`로 통합되며 2개 링크로 축소.
+export const TOOLS = [
+  { href: "/", label: "절세 계좌 수익 시뮬레이터" },
   { href: "/dividend", label: "배당금 계산기" },
 ];
 

@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import taxRules from "@/config/tax-rules.json";
 import { calculateTrade } from "@/lib/tax/trade-calculator";
 import { useChatContext } from "@/components/chat/ChatContext";
+import { Header } from "./Header";
 import { IsaTypeToggle, type TwoWayIsaType } from "./IsaTypeToggle";
 import { ScenarioForm, QUANTITY_MAX } from "./ScenarioForm";
 import { ResultPanel } from "./ResultPanel";
 import { NaturalLanguageInputCard } from "./NaturalLanguageInputCard";
+import { AiExplanationPanel } from "./AiExplanationPanel";
 import { Disclaimer } from "./Disclaimer";
 
 export function TradeCalculator() {
@@ -62,6 +65,54 @@ export function TradeCalculator() {
     setIsaType(data.isaType === "low_income" ? "low_income" : "general");
   }, []);
 
+  // Stage 21: `/`로 통합되며 신규 추가된 "AI 설명 보기" 섹션이 호출하는 explain(v2: trade).
+  const handleExplain = useCallback(async () => {
+    const res = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "trade",
+        input: {
+          stockName,
+          currentPriceKrw,
+          expectedProfitPerShareKrw,
+          expectedLossPerShareKrw,
+          quantity,
+          isaType,
+        },
+        result: {
+          totalInvestKrw: result.totalInvestKrw,
+          isExceedingContributionLimit: result.isExceedingContributionLimit,
+          isaQuantity: result.isaQuantity,
+          generalQuantity: result.generalQuantity,
+          taxFreeLimitKrw: result.taxFreeLimitKrw,
+          netGainForIsaKrw: result.netGainForIsaKrw,
+          isaTaxKrw: result.isaTaxKrw,
+          generalForcedTaxKrw: result.generalForcedTaxKrw,
+          generalOnlyTaxKrw: result.generalOnlyTaxKrw,
+          totalTaxKrw: result.totalTaxKrw,
+          savedAmountKrw: result.savedAmountKrw,
+        },
+        verificationStatus: taxRules.verification_status,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(
+        data.message ?? "지금은 AI 설명을 불러올 수 없어요, 계산 결과는 위에서 확인하세요."
+      );
+    }
+    return data.explanation as string;
+  }, [
+    stockName,
+    currentPriceKrw,
+    expectedProfitPerShareKrw,
+    expectedLossPerShareKrw,
+    quantity,
+    isaType,
+    result,
+  ]);
+
   const { setCurrentSimulation } = useChatContext();
 
   const currentSimulation = useMemo(
@@ -101,9 +152,7 @@ export function TradeCalculator() {
   return (
     <div className="bg-slate-50 min-h-full">
       <div className="p-5 max-w-5xl mx-auto flex flex-col gap-6 py-10">
-        <header className="flex justify-center items-center py-4 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-900">매매차익 계산기</h1>
-        </header>
+        <Header />
 
         <NaturalLanguageInputCard onApply={handleApplyNaturalLanguage} />
 
@@ -131,6 +180,8 @@ export function TradeCalculator() {
             theoreticalMaxTaxKrw={theoreticalMaxTaxKrw}
           />
         </main>
+
+        <AiExplanationPanel onExplain={handleExplain} />
 
         <Disclaimer />
       </div>

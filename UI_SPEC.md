@@ -1,5 +1,7 @@
 # UI_SPEC.md — 프론트엔드 UI/UX 명세
 
+> **Stage 21 안내**: 이 문서의 원안(투자금액 슬라이더 + 절세구간 마커)은 더 이상 `/`에 사용되지 않는다. `/`는 Stage 21부터 매매차익 UI로 통합되었으며 최신 구조는 `design/merged-hold-trade-mockup.html`과 `skills.md` 8절을 따른다. 원안은 기록 목적으로 보존한다.
+
 Stage 3(frontend-ui) 작업 시 이 문서와 `design/ui-mockup.html`을 1차 레퍼런스로 삼는다. `design/ui-mockup.html`은 정적 시안이 아니라 실제 동작하는 vanilla JS 목업이므로, 브라우저로 직접 열어서 상호작용을 확인한 뒤 React 컴포넌트로 옮긴다.
 
 ## 1. 디자인 언어
@@ -83,7 +85,22 @@ Stage 7에서 이 서비스가 `/`(거치 기준 수익) 하나에서 `/`, `/tra
 - **페이지 하단 여백**: `app/layout.tsx`가 `{children}`을 감싸는 wrapper에 `pb-20`(80px)을 둬서 collapsed 바가 페이지 콘텐츠(특히 하단 disclaimer)를 가리지 않는다.
 - 정의는 `components/chat/ChatPanel.tsx`, `components/chat/ChatPanel.module.css` 참고.
 
+## 8. Stage 21: 거치식/매매차익 통합
+
+`/`가 거치식(TaxSimulator) 단독 도구에서 매매차익 계산기 UI로 통합되면서, `design/merged-hold-trade-mockup.html`(사용자가 직접 확정한 최종 시안)이 `/`의 1차 레퍼런스가 된다. 페이지는 위→아래로 3개 영역으로 구성된다.
+
+1. **헤더(A)**: 제목 "절세 계좌 수익 시뮬레이터". 그 아래 서브타이틀은 기존 거치식 헤더(`components/tax-simulator/Header.tsx`)의 문구를 최대한 그대로 가져오되 색상만 매매차익 테마(에메랄드, `text-emerald-600`)로 통일한다. `updated at` 캡션도 그대로 유지한다(`config/tax-rules.json`의 `as_of` 참조).
+2. **본문(B)**: 기존 `/trade`의 UI를 그대로 사용한다 — AI 자연어 입력(매매차익 스키마: 종목명/현재주가/주당손익/수량) → ISA 유형 토글 → 투자 시나리오 설정 카드 → 수량 슬라이더 → 결과 카드(헤드라인 절세액 + 납입한도 게이지 + 비과세소진율 게이지 + 세금비교 바 2개).
+3. **AI 설명 보기 (신규)**: 페이지 맨 밑, 전체 폭 섹션. 버튼을 누르면 아래로 펼쳐지며 AI가 생성한 결과 해설 텍스트를 보여준다(Stage 4의 기존 "AI 설명 보기" UX 패턴 재사용 — 접혔다 펼쳐지는 형태, 최초 클릭 시에만 API를 호출하고 이후에는 캐시된 결과를 그대로 보여준다). `components/trade-calculator/AiExplanationPanel.tsx` 참고.
+
+**라우팅**: `/trade`는 `/`로 리다이렉트된다(`next/navigation`의 `redirect()`). 상단 네비게이션(`components/site-shell/SiteNav.tsx`)은 "절세 계좌 수익 시뮬레이터"(`/`), "배당금 계산기"(`/dividend`) 2개 링크로 줄어든다.
+
+**계산 로직**: `/`의 실제 계산은 `lib/tax/trade-calculator.ts`의 `calculateTrade`를 그대로 호출한다(중복 구현 없음). 거치식 계산 엔진(`lib/tax/general-account.ts`, `isa-account.ts`, `threshold.ts`)과 `TaxSimulator.tsx`, `/api/simulate`, `/api/parse`(거치식 파싱)는 삭제하지 않고 그대로 남겨둔다 — 더 이상 어떤 페이지에서도 호출되지 않는 죽은 코드가 되지만, 나중에 되살릴 수 있게 보존한다(Stage 18의 `otherFinancialIncomeKrw` 보존 원칙과 동일). `/api/simulate`와 `/api/parse`는 여전히 살아있는 엔드포인트이므로 보안 점검 체크리스트에서는 계속 포함된다.
+
+**AI 설명 보기 API**: `/api/explain`의 요청 스키마가 `ChatCurrentSimulation`과 같은 `kind` 판별 유니언(`{ kind: "hold", ... } | { kind: "trade", ... }`)으로 일반화되었다. `/` 페이지는 `kind: "trade"`로 호출한다. 원문은 `PROMPTS.md` 2절 v2 참고.
+
 ## 관련 파일
-- `design/ui-mockup.html` — 동작하는 인터랙션 레퍼런스 (브라우저로 직접 열어서 확인)
-- `design/ui_mockup_mk.html` — `/trade`(매매차익 계산기, Stage 8 예정) 시안. 그린/에메랄드 테마
-- `feature_list.json` Stage 3 — 이 문서 기준으로 작업 항목 갱신됨
+- `design/ui-mockup.html` — 거치식 원안 인터랙션 레퍼런스 (브라우저로 직접 열어서 확인, Stage 21부터 `/`에는 미사용, 기록 목적 보존)
+- `design/ui_mockup_mk.html` — 매매차익 계산기(Stage 8) 시안. 그린/에메랄드 테마
+- `design/merged-hold-trade-mockup.html` — Stage 21부터 `/`의 확정 시안 (헤더A + 매매차익 UI B + AI 설명 보기)
+- `feature_list.json` Stage 3, Stage 21 — 이 문서 기준으로 작업 항목 갱신됨

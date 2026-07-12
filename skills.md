@@ -49,16 +49,18 @@
 - **결과 해설**: 계산 결과 JSON을 입력받아 "왜 이 결과가 나왔는지"를 손익통산/비과세한도/분리과세 등 근거 키워드를 포함해 3~5문장으로 설명. 확정적 조언("무조건 ISA로 가세요") 대신 "이 조건에서는 ~~"로 조건부 표현을 쓰게 한다.
 - **세제 챗봇**: 위 "확인 필요 항목"에 해당하는 질문에는 확정 답변 대신 "최신 공지 확인 필요"를 안내하도록 시스템 프롬프트에 명시한다.
 
-## 6. 다중 도구 구조 (Stage 7부터)
-이 서비스는 원래 "거치식(한 번에 목돈을 투자해 보유)" 시나리오 하나만 다뤘지만, Stage 7부터 여러 투자 시나리오 도구를 한 사이트에서 제공하는 구조로 확장한다.
+## 6. 다중 도구 구조 (Stage 7부터, Stage 21에서 거치식/매매차익 통합)
+이 서비스는 원래 "거치식(한 번에 목돈을 투자해 보유)" 시나리오 하나만 다뤘지만, Stage 7부터 여러 투자 시나리오 도구를 한 사이트에서 제공하는 구조로 확장했다. **Stage 21부터 `/`는 매매차익 UI로 통합되었고 `/trade`는 사라졌다** — 아래는 현재 라우팅 기준이며, 통합 이전 구조(거치식이 `/`를 단독 차지하던 시절)는 8절에 기록해둔다.
 
-- **`/` — 거치 기준 수익 (기존 Stage 0~6 산출물)**: 목돈을 한 번에 투자해 일정 기간 보유한다고 가정하고 일반계좌 vs ISA 세후수익을 비교한다. 디자인 테마는 UI_SPEC.md 1절의 블루(`accent: #2f5fe0`) 계열을 그대로 유지한다.
-- **`/trade` — 매매차익 계산기 (Stage 8)**: 특정 종목을 매수 수량 단위로 사고팔 때의 매매차익 기준 절세 효과를 계산하는 별도 도구. `design/ui_mockup_mk.html`이 이 도구의 시안이며, 그린/에메랄드 계열(`emerald-500` 등) 테마를 쓴다. 계산 로직은 `lib/tax/trade-calculator.ts`(순수함수)가 담당하며, `lib/tax/rate-engine.ts`의 `applyGeneralCapitalGainsTax`/`applyIsaSeparateTax`를 거치식 도구와 동일하게 재사용한다(세율 소스 이중 관리 없음).
-  - **ISA 의무가입기간(3년) 유지를 가정한다.** 중도해지 시나리오(3년 미만 해지 시 혜택 전부 취소)는 이 도구의 범위에 포함하지 않는다 — 거치식 도구(`/`)만 이 시나리오를 다룬다.
-  - **금융소득종합과세(연 금융소득 2천만원 초과 시 한계세율 적용) 계산을 포함하지 않는다.** 거치식 도구는 이를 다루지만(1절/3절 참고), 매매차익 계산기는 일반계좌 전환분에 항상 양도소득세(22%+기본공제)만 적용하고 종합과세 전환 여부는 계산하지 않는다 — 두 도구의 스코프가 다르다는 점을 UI/AI 해설에서 혼동 없이 유지해야 한다.
+- **`/` — 절세 계좌 수익 시뮬레이터 (Stage 21부터 매매차익 UI로 통합)**: 특정 종목을 매수 수량 단위로 사고팔 때의 매매차익 기준 절세 효과를 계산한다. `design/merged-hold-trade-mockup.html`이 확정 시안이며, 그린/에메랄드 계열(`emerald-500` 등) 테마를 쓴다. 계산 로직은 `lib/tax/trade-calculator.ts`(순수함수)가 담당하며, `lib/tax/rate-engine.ts`의 `applyGeneralCapitalGainsTax`/`applyIsaSeparateTax`를 재사용한다(세율 소스 이중 관리 없음). 헤더 아래에 신규 "AI 설명 보기" 섹션이 추가되어 `/api/explain`(`kind: "trade"`, v2 프롬프트)을 호출한다.
+  - **ISA 의무가입기간(3년) 유지를 가정한다.** 중도해지 시나리오(3년 미만 해지 시 혜택 전부 취소)는 이 도구의 범위에 포함하지 않는다.
+  - **금융소득종합과세(연 금융소득 2천만원 초과 시 한계세율 적용) 계산을 포함하지 않는다.** 일반계좌 전환분에 항상 양도소득세(22%+기본공제)만 적용하고 종합과세 전환 여부는 계산하지 않는다.
   - 연간 납입한도(2,000만원)를 초과하는 매수 수량은 ISA에 편입될 수 없어 초과분이 일반계좌 규칙으로 강제 전환되어 과세된다.
-- **색상 테마는 도구별로 완전히 독립적으로 유지한다.** `/`의 블루, `/trade`의 그린 테마를 서로 섞거나 통일하지 않는다. 다만 두 도구를 넘나드는 상단 네비게이션과 공용 챗봇처럼 "셸(shell)" 레벨 UI는 어느 도구 색과도 무관한 중립 슬레이트/네이비 색을 쓴다(`components/site-shell/`, `components/chat/` 참고).
-- **세금 Q&A 챗봇은 세 도구가 공유한다.** `app/layout.tsx` 레벨에 렌더링되어 페이지를 이동해도 대화 히스토리가 유지되며(React Context, `components/chat/ChatContext.tsx`), 현재 어느 도구에서 온 시뮬레이션 결과인지는 `ChatCurrentSimulation`의 `kind`(`"hold"` | `"trade"` | `"dividend"`) 판별 유니언으로 구분해 챗봇에게 전달한다.
+- **`/trade`는 `/`로 리다이렉트된다** (`next/navigation`의 `redirect()`). 기존 `/trade` 전용 페이지는 더 이상 존재하지 않는다.
+- **거치식 계산 엔진은 삭제하지 않고 보존한다 (죽은 코드화).** `lib/tax/general-account.ts`, `isa-account.ts`, `threshold.ts`와 그 테스트, `components/tax-simulator/`(구 `/` 구현체, `TaxSimulator.tsx` 포함), `app/api/simulate`, `app/api/parse`(거치식 자연어 파싱)는 어떤 페이지에서도 더 이상 호출되지 않지만 나중에 되살릴 수 있게 그대로 남겨둔다 — Stage 18에서 `otherFinancialIncomeKrw`를 UI에서만 걷어내고 로직/테스트는 보존했던 것과 같은 원칙. 단, `/api/simulate`와 `/api/parse`는 여전히 살아있는(rate-limit 걸린) API 엔드포인트이므로 이후 보안 점검 체크리스트(Stage 9/11/15/17/20 패턴)에서 계속 포함해야 한다.
+- **`/dividend` — 배당금 계산기 (Stage 10)**: 변경 없음. 앰버/골드 테마, 자세한 내용은 7절 참고.
+- **색상 테마는 도구별로 완전히 독립적으로 유지한다.** `/`(매매차익, 그린)와 `/dividend`(앰버)를 서로 섞거나 통일하지 않는다. 다만 두 도구를 넘나드는 상단 네비게이션과 공용 챗봇처럼 "셸(shell)" 레벨 UI는 어느 도구 색과도 무관한 중립 슬레이트/네이비 색을 쓴다(`components/site-shell/`, `components/chat/` 참고). `SiteNav`는 Stage 21부터 2개 링크("절세 계좌 수익 시뮬레이터", "배당금 계산기")만 노출한다.
+- **세금 Q&A 챗봇은 두 도구가 공유한다.** `app/layout.tsx` 레벨에 렌더링되어 페이지를 이동해도 대화 히스토리가 유지되며(React Context, `components/chat/ChatContext.tsx`), 현재 어느 도구에서 온 시뮬레이션 결과인지는 `ChatCurrentSimulation`의 `kind`(`"hold"` | `"trade"` | `"dividend"`) 판별 유니언으로 구분해 챗봇에게 전달한다. `HoldSimulationContext` 타입 자체는 삭제하지 않고 보존한다(더 이상 어떤 페이지도 채우지 않지만).
 
 ## 7. 배당금 계산기 스코프 (`/dividend`, Stage 10부터)
 
@@ -70,3 +72,7 @@
 - **배당금 자체가 2,000만원을 넘으면 다른 금융소득이 0이어도 종합과세 로직이 정상적으로 트리거된다 (Stage 19).** `lib/tax/dividend-calculator.ts`의 판단식은 `isComprehensiveTaxationTriggered = totalFinancialIncomeKrw > COMPREHENSIVE_TAXATION_THRESHOLD_KRW`(`totalFinancialIncomeKrw = totalDividendKrw + otherFinancialIncomeKrw`)로, `otherFinancialIncomeKrw > 0`을 전제조건으로 삼지 않는다. 즉 Stage 18 이후 이 값이 항상 0으로 고정되더라도 배당금 총액 단독으로 기준(2,000만원)을 초과하면 금융소득종합과세가 정상적으로 트리거되고, `resolveMarginalIncomeTaxRate` 브래킷 조회로 얻은 한계세율이 초과분에 적용된다. 다른 금융소득만 반영하지 못한다는 한계는 여전히 남아 있으므로(결과 영역 상시 노출 문구: "이 계산은 배당금 외 다른 금융소득은 고려하지 않습니다. 다른 금융소득과 합산 시 종합과세 대상이 될 수 있습니다."), 사용자가 이미 다른 금융소득이 있다면 실제로는 더 낮은 배당금 수준에서도 종합과세 대상이 될 수 있다는 점을 UI/AI 해설에서 계속 안내해야 한다.
 - ISA 쪽은 매매차익 손익통산 개념이 없어(배당금만 다루므로) `applyIsaSeparateTax`를 배당금 자체를 순이익으로 취급해 그대로 재사용한다.
 - **수량 입력모드 (Stage 12부터)**: 보유 수량은 "수량 직접입력" 또는 "총 매수금액 입력" 두 가지 방식으로 받을 수 있다(`lib/tax/dividend-calculator.ts`의 `resolveDividendQuantity`). 총 매수금액 입력 시 현재 주가로 나눈 몫만큼만 실제로 살 수 있으므로 나머지는 `Math.floor`로 내림 처리하고, 그 결과 실제 투입 금액(`actualInvestedAmountKrw`)이 사용자가 입력한 금액(`requestedAmountKrw`)보다 작아질 수 있다 — 이 차이는 숨기지 않고 UI/AI 응답에 그대로 노출한다. 두 입력방식은 겉모습만 다를 뿐 최종적으로 같은 수량에 도달하면 배당금·세금·세금이득 계산 결과가 완전히 동일해야 한다(`calculateDividend`의 세금 계산 로직 자체는 두 모드와 무관하게 하나이며, `resolveDividendQuantity`는 그 앞단에서 수량만 결정해주는 역할).
+
+## 8. 참고: Stage 7~20 구조 (거치식이 `/`를 단독 차지하던 시절, Stage 21에서 통합됨)
+
+Stage 21 이전에는 `/`가 거치식(목돈을 한 번에 투자해 일정 기간 보유, 블루 `accent: #2f5fe0` 테마)을 단독으로 제공했고, `/trade`가 매매차익 계산기(그린/에메랄드 테마)를 별도 페이지로 제공했다. 두 계산 방식이 본질적으로 같다는 판단 아래 Stage 21에서 `/`가 매매차익 UI로 통합되었다 — 이 절은 그 이전 구조를 기록 목적으로만 남긴다. 실제 계산 로직(`lib/tax/general-account.ts` 등)과 컴포넌트(`components/tax-simulator/`)는 코드 상에 그대로 남아있으므로, 필요하면 이 구조를 다시 참고해 되살릴 수 있다.

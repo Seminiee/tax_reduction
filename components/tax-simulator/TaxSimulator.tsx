@@ -95,6 +95,7 @@ export function TaxSimulator() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        kind: "hold",
         input: { principalKrw, annualReturnRate, holdingYears, isaType },
         generalAccount: {
           finalAfterTaxValue: generalResult.finalAfterTaxValue,

@@ -6,6 +6,7 @@ import { explainSimulationResult, type ExplainSimulationInput } from "./explain-
 const shouldRun = process.env.RUN_AI_SMOKE_TEST === "1" && !!process.env.ANTHROPIC_API_KEY;
 
 const SAMPLE_INPUT: ExplainSimulationInput = {
+  kind: "hold",
   input: { principalKrw: 10_000_000, annualReturnRate: 0.08, holdingYears: 5, isaType: "general" },
   generalAccount: {
     finalAfterTaxValue: 14_210_759,
@@ -23,9 +24,43 @@ const SAMPLE_INPUT: ExplainSimulationInput = {
   verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
 };
 
+// Stage 21: `/`로 통합된 매매차익 계산기 결과 해설(v2) 스모크 입력.
+const SAMPLE_TRADE_INPUT: ExplainSimulationInput = {
+  kind: "trade",
+  input: {
+    stockName: "나스닥 100 ETF",
+    currentPriceKrw: 115_000,
+    expectedProfitPerShareKrw: 15_000,
+    expectedLossPerShareKrw: 0,
+    quantity: 200,
+    isaType: "general",
+  },
+  result: {
+    totalInvestKrw: 23_000_000,
+    isExceedingContributionLimit: true,
+    isaQuantity: 173,
+    generalQuantity: 27,
+    taxFreeLimitKrw: 2_000_000,
+    netGainForIsaKrw: 2_595_000,
+    isaTaxKrw: 58_905,
+    generalForcedTaxKrw: 89_100,
+    generalOnlyTaxKrw: 660_000,
+    totalTaxKrw: 148_005,
+    savedAmountKrw: 511_995,
+  },
+  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+};
+
 describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제 API 호출)", () => {
-  it("조건부 표현이 포함된 한국어 해설을 생성한다", async () => {
+  it("kind: hold — 조건부 표현이 포함된 한국어 해설을 생성한다", async () => {
     const result = await explainSimulationResult(SAMPLE_INPUT);
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).not.toContain("무조건");
+  }, 30_000);
+
+  it("kind: trade — 조건부 표현이 포함된 한국어 해설을 생성한다 (Stage 21 v2)", async () => {
+    const result = await explainSimulationResult(SAMPLE_TRADE_INPUT);
 
     expect(result.length).toBeGreaterThan(0);
     expect(result).not.toContain("무조건");

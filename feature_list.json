@@ -275,6 +275,23 @@
         "세 페이지(/, /trade, /dividend) 챗봇 히스토리 유지 최종 확인 (프로덕션)"
       ],
       "done_criteria": "프로덕션 URL에서 위 항목 전부 실제 확인 완료, PROGRESS.md/feature_list.json 갱신 및 커밋"
+    },
+    {
+      "id": 21,
+      "name": "hold-trade-merge",
+      "status": "done",
+      "tasks": [
+        "/ 를 매매차익 계산기 UI로 통합: 헤더(A, 에메랄드 테마, 거치식 서브타이틀 텍스트 재사용) + 매매차익 UI(B, 기존 /trade 그대로) + 신규 AI 설명 보기 섹션(접기/펼치기)",
+        "/trade 를 / 로 redirect",
+        "components/site-shell/SiteNav.tsx를 2개 링크(절세 계좌 수익 시뮬레이터, 배당금 계산기)로 축소",
+        "거치식 계산 엔진(lib/tax/general-account.ts, isa-account.ts, threshold.ts)과 app/api/simulate, app/api/parse는 삭제하지 않고 보존(죽은 코드화, 재사용 원칙)",
+        "app/api/explain 요청 스키마를 ChatCurrentSimulation과 같은 discriminated union(kind: hold|trade)으로 일반화, hold용 프롬프트(v1) 보존 + trade용 신규 프롬프트(v2) 추가",
+        "/ 페이지의 AI 설명 보기가 신규 trade용 explain(v2)을 호출하도록 연결",
+        "/ 페이지의 ChatContext 동기화를 TradeSimulationContext로 전환(HoldSimulationContext 타입 자체는 보존)",
+        "UI_SPEC.md/skills.md/README.md/CLAUDE.md 문서 갱신",
+        "신규 테스트 추가: / 렌더링, /trade 리다이렉트, explain v2(trade), SiteNav 2링크 + 기존 전체 테스트(거치식 포함) 회귀 확인"
+      ],
+      "done_criteria": "/에서 헤더(A)+매매차익 UI(B)+AI 설명 보기 정상 동작, /trade가 /로 리다이렉트, SiteNav 2개 링크, 기존 전체 테스트 통과, 신규 테스트 통과, 375px 모바일 정상 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

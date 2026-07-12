@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>절세 계좌 수익 시뮬레이터 (통합 시안)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 9999px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -10px;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+            border: 2px solid #ffffff;
+        }
+
+        .ai-explain-box {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease-out;
+        }
+
+        .ai-explain-box.open {
+            max-height: 400px;
+        }
+    </style>
+</head>
+
+<body class="p-5 max-w-5xl mx-auto min-h-screen py-10">
+
+    <!-- ============ A. 헤더 (거치식에서 가져옴, 색만 그린으로 통일) ============ -->
+    <header class="text-center mb-10">
+        <h1 class="text-3xl font-black text-slate-900 mb-3">절세 계좌 수익 시뮬레이터</h1>
+        <p class="text-sm font-bold text-emerald-600 mb-1.5">일반계좌 직접투자 · ISA 절세계좌 · 국내상장 해외ETF</p>
+        <p class="text-sm text-slate-500 mb-1.5">투자 조건을 슬라이드하면 세후 수익과 절세 구간을 바로 보여드립니다.</p>
+        <p class="text-xs text-slate-400">updated at : 2026-07-19 · 세율/한도 기준은 하단 안내 참고</p>
+    </header>
+
+    <!-- ============ B. 매매차익 계산기 UI (기존 /trade 구조 그대로) ============ -->
+    <main class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+
+        <div class="flex flex-col gap-6">
+
+            <!-- AI 자연어 입력 (A/B 경계 지점) -->
+            <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <h2 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-emerald-500"></i>
+                    AI로 조건 입력 <span class="text-xs font-normal text-slate-400">(선택)</span>
+                </h2>
+                <div class="flex gap-2">
+                    <input type="text" id="ai-input"
+                        placeholder="예: 나스닥100 ETF 200주, 주가 11만5천, 주당 1만5천원 오를 것 같아"
+                        class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors">
+                    <button
+                        class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition-colors whitespace-nowrap">
+                        AI로 채우기
+                    </button>
+                </div>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm font-semibold text-slate-600">가입 유형 선택</span>
+                    <span id="badge-taxfree"
+                        class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md">비과세
+                        200만</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl">
+                    <button id="btn-general"
+                        class="py-3 text-sm font-bold rounded-lg transition-all bg-white text-slate-900 shadow-sm border border-slate-200/50"
+                        onclick="setIsaType('general')">
+                        일반형 <span class="block text-[10px] font-medium text-slate-400 mt-0.5">비과세 200만</span>
+                    </button>
+                    <button id="btn-farmer"
+                        class="py-3 text-sm font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700"
+                        onclick="setIsaType('farmer')">
+                        서민형 <span class="block text-[10px] font-medium text-slate-400 mt-0.5">비과세 400만</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h2 class="text-sm font-bold text-slate-700 mb-5"><i
+                        class="fa-solid fa-calculator text-emerald-500 mr-2"></i>투자 시나리오 설정</h2>
+                <div class="grid grid-cols-2 gap-4 mb-5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-medium mb-1.5">종목명</label>
+                        <input type="text" id="input-name" value="나스닥 100 ETF"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors"
+                            oninput="updateUI()">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 font-medium mb-1.5">현재 주가 (원)</label>
+                        <input type="number" id="input-price" value="115000"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors"
+                            oninput="updateUI()">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <div>
+                        <label class="block text-xs text-emerald-600 font-medium mb-1.5">주당 예상 이익 (+)</label>
+                        <input type="number" id="input-profit" value="15000"
+                            class="w-full bg-emerald-50/50 border border-emerald-200 rounded-xl px-3 py-2.5 text-sm text-emerald-700 font-mono focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors"
+                            oninput="updateUI()">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-rose-600 font-medium mb-1.5">주당 예상 손실 (-)</label>
+                        <input type="number" id="input-loss" value="0"
+                            class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-3 py-2.5 text-sm text-rose-700 font-mono focus:outline-none focus:border-rose-400 focus:bg-white transition-colors"
+                            oninput="updateUI()">
+                    </div>
+                </div>
+                <div class="pt-5 border-t border-slate-100">
+                    <div class="flex justify-between items-center mb-5">
+                        <span class="text-sm font-bold text-slate-700">매수 수량 조절</span>
+                        <span class="text-xl font-black text-emerald-600 font-mono" id="txt-qty">200주</span>
+                    </div>
+                    <input type="range" id="slider-qty" min="1" max="2000" value="200" oninput="updateUI()">
+                    <div class="flex justify-between text-xs text-slate-400 mt-3 font-mono">
+                        <span>1주</span>
+                        <span>2,000주</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="flex flex-col gap-6 h-full">
+            <div id="alert-limit"
+                class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700 flex items-start gap-3 shadow-sm">
+                <i class="fa-solid fa-circle-exclamation mt-1 text-amber-500"></i>
+                <span><strong class="text-amber-800">연간 납입 한도(2,000만 원) 초과!</strong><br>한도를 초과한 투자금은 일반 주식 계좌로 강제 전환되어
+                    세금이 부과됩니다.</span>
+            </div>
+
+            <section class="flex flex-col justify-center flex-1 bg-white border border-slate-200 rounded-3xl p-8 shadow-xl">
+                <div class="mb-8">
+                    <p class="text-sm text-slate-500 font-bold mb-2" id="lbl-result-title">나스닥 100 ETF 200주 절세 혜택</p>
+                    <h2 class="text-5xl font-black text-emerald-500 tracking-tight" id="txt-final-saving">₩0</h2>
+                </div>
+
+                <div class="space-y-6 mb-8">
+                    <div>
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-slate-500 font-medium">납입 한도 (2,000만)</span>
+                            <span class="font-mono text-slate-700 font-bold" id="txt-gauge-invest">0%</span>
+                        </div>
+                        <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                            <div id="bar-invest" class="h-full bg-cyan-400 transition-all duration-200" style="width: 0%;">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-slate-500 font-medium">비과세 소진율 (<span id="lbl-taxfree-max">200만</span>)</span>
+                            <span class="font-mono text-slate-700 font-bold" id="txt-gauge-taxfree">0%</span>
+                        </div>
+                        <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                            <div id="bar-taxfree" class="h-full bg-emerald-400 transition-all duration-200"
+                                style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-6 border-t border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-700 mb-5">실시간 세금 비교 (수량에 따른 변화)</h3>
+                    <div class="mb-5">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-slate-500 font-semibold text-xs">일반 계좌 세금 (22% 양도세, 250만원 공제)</span>
+                            <span class="font-mono text-rose-500 font-bold text-sm" id="audit-gen-tax">₩0</span>
+                        </div>
+                        <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-100">
+                            <div id="bar-gen-tax" class="h-full bg-rose-400 transition-all duration-150" style="width: 0%;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-slate-500 font-semibold text-xs">ISA 계좌 세금 (9.9% 분리과세 등)</span>
+                            <span class="font-mono text-emerald-600 font-bold text-sm" id="audit-isa-tax">₩0</span>
+                        </div>
+                        <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-100">
+                            <div id="bar-isa-tax" class="h-full bg-emerald-400 transition-all duration-150" style="width: 0%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ============ 신규: B 맨 밑부분 AI 설명 보기 ============ -->
+    <section class="mt-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <button onclick="toggleExplain()"
+            class="w-full flex items-center justify-between text-sm font-bold text-slate-700">
+            <span><i class="fa-solid fa-comment-dots text-emerald-500 mr-2"></i>AI 설명 보기</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs" id="explain-chevron"></i>
+        </button>
+        <div class="ai-explain-box" id="explain-box">
+            <p class="text-sm text-slate-600 leading-relaxed pt-4 border-t border-slate-100 mt-4" id="explain-text">
+                이 조건에서는 매매차익에 대해 일반계좌는 22% 양도소득세(250만원 공제)가, ISA 계좌는 손익통산 후 비과세 한도까지는 세금이 없고 초과분에 9.9% 분리과세가 적용됩니다.
+                현재 수량 기준으로는 ISA 계좌가 세후 기준 더 유리한 결과를 보이고 있습니다. 수량이나 예상 손익이 달라지면 유불리가 바뀔 수 있습니다.
+            </p>
+        </div>
+    </section>
+
+    <script>
+        const LIMIT_YEARLY = 20000000;
+        const GENERAL_DEDUCTION = 2500000;
+        let limitTaxFree = 2000000;
+
+        function toggleExplain() {
+            const box = document.getElementById('explain-box');
+            const chevron = document.getElementById('explain-chevron');
+            box.classList.toggle('open');
+            chevron.classList.toggle('fa-chevron-down');
+            chevron.classList.toggle('fa-chevron-up');
+        }
+
+        function setIsaType(type) {
+            const btnGen = document.getElementById('btn-general');
+            const btnFarm = document.getElementById('btn-farmer');
+            const badge = document.getElementById('badge-taxfree');
+            const lblMax = document.getElementById('lbl-taxfree-max');
+            const activeClass = "py-3 text-sm font-bold rounded-lg transition-all bg-white text-slate-900 shadow-sm border border-slate-200/50";
+            const inactiveClass = "py-3 text-sm font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700";
+            if (type === 'general') {
+                limitTaxFree = 2000000;
+                btnGen.className = activeClass; btnFarm.className = inactiveClass;
+                badge.innerText = "비과세 200만"; lblMax.innerText = "200만";
+            } else {
+                limitTaxFree = 4000000;
+                btnFarm.className = activeClass; btnGen.className = inactiveClass;
+                badge.innerText = "비과세 400만"; lblMax.innerText = "400만";
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            const name = document.getElementById('input-name').value || '종목';
+            const price = parseFloat(document.getElementById('input-price').value) || 0;
+            const profit = parseFloat(document.getElementById('input-profit').value) || 0;
+            const loss = parseFloat(document.getElementById('input-loss').value) || 0;
+            const slider = document.getElementById('slider-qty');
+            const qty = parseInt(slider.value) || 0;
+            const maxQty = parseInt(slider.max);
+            const sliderPercent = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+            slider.style.background = `linear-gradient(to right, #10b981 ${sliderPercent}%, #e2e8f0 ${sliderPercent}%)`;
+            const totalInvest = price * qty;
+
+            function generalTaxOn(netGain) { return Math.max(0, netGain - GENERAL_DEDUCTION) * 0.22; }
+            function isaTaxOn(netGain) { return Math.max(0, netGain - limitTaxFree) * 0.099; }
+
+            let taxGeneral = 0, taxIsa = 0, netProfitForIsa = 0;
+            if (totalInvest <= LIMIT_YEARLY) {
+                const netGain = Math.max(0, (profit * qty) - (loss * qty));
+                netProfitForIsa = netGain;
+                taxIsa = isaTaxOn(netGain);
+                taxGeneral = generalTaxOn(netGain);
+                document.getElementById('alert-limit').classList.add('hidden');
+            } else {
+                const isaQty = Math.floor(LIMIT_YEARLY / price);
+                const generalQty = qty - isaQty;
+                const isaNetGain = Math.max(0, (profit * isaQty) - (loss * isaQty));
+                netProfitForIsa = isaNetGain;
+                taxIsa = isaTaxOn(isaNetGain);
+                const excessNetGain = Math.max(0, (profit * generalQty) - (loss * generalQty));
+                taxIsa += generalTaxOn(excessNetGain);
+                const fullNetGain = Math.max(0, (profit * qty) - (loss * qty));
+                taxGeneral = generalTaxOn(fullNetGain);
+                document.getElementById('alert-limit').classList.remove('hidden');
+            }
+            const savedAmount = Math.max(0, taxGeneral - taxIsa);
+            document.getElementById('txt-qty').innerText = qty.toLocaleString() + '주';
+            document.getElementById('lbl-result-title').innerText = `${name} ${qty.toLocaleString()}주 절세 혜택`;
+            document.getElementById('txt-final-saving').innerText = `₩${Math.round(savedAmount).toLocaleString()}`;
+            document.getElementById('audit-gen-tax').innerText = `₩${Math.round(taxGeneral).toLocaleString()}`;
+            document.getElementById('audit-isa-tax').innerText = `₩${Math.round(taxIsa).toLocaleString()}`;
+            const investPct = Math.min((totalInvest / LIMIT_YEARLY) * 100, 100);
+            document.getElementById('bar-invest').style.width = investPct + '%';
+            document.getElementById('txt-gauge-invest').innerText = `₩${Math.round(totalInvest).toLocaleString()} (${Math.round(investPct)}%)`;
+            const taxFreePct = Math.min((netProfitForIsa / limitTaxFree) * 100, 100);
+            document.getElementById('bar-taxfree').style.width = taxFreePct + '%';
+            document.getElementById('txt-gauge-taxfree').innerText = Math.round(taxFreePct) + '%';
+            const theoreticalMaxNetGain = Math.max(0, (profit * maxQty) - (loss * maxQty));
+            const theoreticalMaxTax = generalTaxOn(theoreticalMaxNetGain);
+            const safeMaxTax = theoreticalMaxTax > 0 ? theoreticalMaxTax : 1;
+            document.getElementById('bar-gen-tax').style.width = Math.min((taxGeneral / safeMaxTax) * 100, 100) + '%';
+            document.getElementById('bar-isa-tax').style.width = Math.min((taxIsa / safeMaxTax) * 100, 100) + '%';
+        }
+        window.onload = updateUI;
+    </script>
+</body>
+
+</html>

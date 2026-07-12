@@ -7,18 +7,25 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const FALLBACK_MESSAGE = "지금은 AI 설명을 불러올 수 없어요, 계산 결과는 위에서 확인하세요.";
 
+// Stage 21: ChatCurrentSimulation과 동일한 kind 판별 유니언 패턴으로 hold/trade를 구분한다.
 function isValidBody(body: unknown): body is ExplainSimulationInput {
   if (!body || typeof body !== "object") return false;
   const b = body as Record<string, unknown>;
-  return (
-    typeof b.input === "object" &&
-    b.input !== null &&
-    typeof b.generalAccount === "object" &&
-    b.generalAccount !== null &&
-    typeof b.isaAccount === "object" &&
-    b.isaAccount !== null &&
-    typeof b.verificationStatus === "string"
-  );
+  if (typeof b.input !== "object" || b.input === null) return false;
+  if (typeof b.verificationStatus !== "string") return false;
+
+  if (b.kind === "hold") {
+    return (
+      typeof b.generalAccount === "object" &&
+      b.generalAccount !== null &&
+      typeof b.isaAccount === "object" &&
+      b.isaAccount !== null
+    );
+  }
+  if (b.kind === "trade") {
+    return typeof b.result === "object" && b.result !== null;
+  }
+  return false;
 }
 
 export async function POST(request: Request) {
@@ -48,7 +55,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "INVALID_INPUT",
-        message: "input/generalAccount/isaAccount/verificationStatus 필드가 필요합니다.",
+        message:
+          'kind가 "hold"면 input/generalAccount/isaAccount/verificationStatus, "trade"면 input/result/verificationStatus 필드가 필요합니다.',
       },
       { status: 400 }
     );

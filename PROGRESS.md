@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 20 (deploy-and-verify — 프로덕션 재배포 완료, https://taxreduction.vercel.app). 모든 스테이지(0~20) 완료.
-- **마지막 업데이트**: 2026-07-12 (Stage 20 완료)
+- **완료**: Stage 21 (hold-trade-merge — `/`를 매매차익 UI로 통합, `/trade`는 `/`로 리다이렉트, 거치식 계산 엔진은 삭제 없이 보존). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-12 (Stage 21 완료)
 
 ## 스테이지 체크리스트
 
@@ -31,6 +31,7 @@
 | 18 | dividend-simplify (다른 금융소득 고급설정 UI 제거) | done |
 | 19 | dividend-comprehensive-tax-fix (배당금 단독 종합과세 트리거 수정) | done |
 | 20 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
+| 21 | hold-trade-merge (`/`를 매매차익 UI로 통합, `/trade` 리다이렉트) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -269,5 +270,19 @@
 - 프로덕션 검증(Playwright): AI 자연어 입력("리얼티인컴 300주 보유, 주가 5만원, 주당 배당금 100,000원")으로 배당 3,000만원 단독 시나리오 실행 → "세금 ₩4,580,000 (금융소득종합과세 대상, 한계세율 15% 적용)"으로 Stage 19 수정 내용이 프로덕션에서도 정확히 재현됨(로컬 단위테스트 기대값과 완전히 일치). `/dividend`에 "고급설정" 텍스트 매치 0건(UI 완전히 제거됨), 새 안내문구("이 계산은 배당금 외 다른 금융소득은 고려하지 않습니다...") 정상 노출.
 - 챗봇 히스토리 유지 확인: `/`에서 "안녕하세요" 전송 후 실제 앱 내 네비게이션 링크 클릭으로 `/trade`→`/dividend`까지 이동(클라이언트 사이드 라우팅) — 두 페이지 모두에서 기존 대화가 그대로 유지됨을 확인. (참고: `page.goto()`로 강제 풀리로드하면 React 상태가 초기화되어 히스토리가 사라지는 것처럼 보이는데, 이는 앱 버그가 아니라 SPA 네비게이션 특성상 당연한 동작 — 실제 사용자는 항상 인앱 링크로 이동하므로 문제 없음을 링크 클릭 방식 재검증으로 확인.)
 - feature_list.json Stage 20 done 처리, 커밋. **모든 스테이지(0~20) 완료** — 최종 URL: https://taxreduction.vercel.app
+
+### 2026-07-12 (Stage 21)
+- feature_list.json에 Stage 21(hold-trade-merge) 신규 추가(0~20 미변경, 라우팅/페이지 구성 변경은 이 스테이지 작업 대상으로 명시적 허용됨).
+- **`/`를 거치식(TaxSimulator)에서 매매차익 계산기 UI로 통합.** `design/merged-hold-trade-mockup.html`(사용자 확정 시안) 기준으로 헤더(A, 신규 `components/trade-calculator/Header.tsx` — 제목 "절세 계좌 수익 시뮬레이터", 서브타이틀은 기존 거치식 헤더 문구를 그대로 가져오되 에메랄드 색으로 통일) + 본문(B, 기존 `/trade` UI 그대로) + 신규 "AI 설명 보기" 섹션(전체 폭, 접기/펼침, `components/trade-calculator/AiExplanationPanel.tsx`)으로 구성.
+- `app/page.tsx`가 `TradeCalculator`를 렌더링하도록 교체. `app/trade/page.tsx`는 `next/navigation`의 `redirect("/")`로 대체(307 리다이렉트, curl로 확인).
+- `components/site-shell/SiteNav.tsx`를 2개 링크("절세 계좌 수익 시뮬레이터" `/`, "배당금 계산기" `/dividend`)로 축소, `TOOLS` 상수를 export해 렌더링 없이 데이터 레벨로 테스트 가능하게 함.
+- **거치식 계산 엔진은 삭제하지 않고 보존(죽은 코드화)**: `lib/tax/general-account.ts`/`isa-account.ts`/`threshold.ts`와 그 테스트, `components/tax-simulator/`(TaxSimulator.tsx 포함), `app/api/simulate`, `app/api/parse`는 그대로 남김 — Stage 18의 `otherFinancialIncomeKrw` 보존 원칙과 동일. `TaxSimulator.tsx`의 `handleExplain` 호출부에 `kind: "hold"`만 추가해 죽은 코드도 새 API 계약에 맞게 실제로 동작하도록 보정(계산 로직 자체는 미변경).
+- `lib/ai/explain-simulation-result.ts`를 `ChatCurrentSimulation`과 동일한 `kind` 판별 유니언(`HoldExplainInput | TradeExplainInput`)으로 일반화. v1(`EXPLAIN_SYSTEM_PROMPT_HOLD`)은 원문 그대로 보존, v2(`EXPLAIN_SYSTEM_PROMPT_TRADE`)를 신규 추가(규칙은 v1과 동일, 근거 JSON 형태만 다름). `app/api/explain/route.ts`의 `isValidBody` 검증도 `kind`에 따라 분기하도록 갱신.
+- `TradeCalculator.tsx`에 `handleExplain`(kind: "trade") 추가해 신규 AI 설명 보기 섹션과 연결. 실제 API로 확인한 결과, 나스닥100 ETF 200주(연간납입한도 초과) 시나리오에서 조건부 표현이 포함된 정확한 해설을 생성함(PROMPTS.md에 원문 기록).
+- 문서 갱신: `PROMPTS.md`에 결과 해설 v2(trade) 섹션 추가(v1 보존, 실제 API 응답 원문 포함 — AI가 `generalForcedTaxKrw`와 `generalOnlyTaxKrw`를 혼동해 서술한 부분도 수정 없이 그대로 기록). `UI_SPEC.md` 최상단에 원안 폐기 안내 + 신규 8절(Stage 21 페이지 구성 스펙) 추가. `skills.md` 6절을 현재 라우팅 기준으로 재작성하고 이전 구조를 8절로 이관. `README.md`/`CLAUDE.md`의 라우트·아키텍처 설명을 2도구 구조로 갱신.
+- 테스트: `lib/ai/explain-simulation-result.test.ts`/`.smoke.test.ts`에 `kind` 필드 추가 + trade 케이스 신규 추가(시스템 프롬프트가 kind에 따라 올바르게 선택되는지 확인하는 테스트 포함). 신규 `components/site-shell/SiteNav.test.ts`(TOOLS가 정확히 2개, `/trade` 링크 없음 확인)와 `app/trade/page.test.ts`(`redirect()`가 던지는 NEXT_REDIRECT 다이제스트에 목적지 `/`가 포함되는지 확인 — 이 프로젝트는 jsdom/RTL 같은 DOM 렌더링 테스트 인프라를 쓰지 않으므로 렌더링 대신 데이터/예외 다이제스트를 직접 검증하는 방식을 택함) 추가.
+- `npm run test`(78개 통과 — 기존 73개 + 신규 5개, 스모크 10개 스킵. `lib/tax/tax-engine.test.ts`의 거치식 14개 테스트 전부 포함해 그대로 통과 — 회귀 없음 확인), `npm run lint`, `npm run build`(`/trade`가 정적 리다이렉트 라우트로 정상 컴파일) 모두 클린.
+- 로컬 dev 서버 + Playwright로 실제 확인: `/` 접속 시 헤더 타이틀 "절세 계좌 수익 시뮬레이터", 네비게이션 링크 정확히 2개, "AI 설명 보기" 클릭 시 실제 Anthropic API 호출로 조건부 표현이 포함된 해설이 표시됨. `curl`로 `/trade` → `/`(307) 리다이렉트 확인. 375px 모바일에서 헤더(A)와 AI 설명 보기 펼침 상태 모두 가로 스크롤 없이 정상 렌더링됨.
+- feature_list.json Stage 21 done 처리, 커밋 예정. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
