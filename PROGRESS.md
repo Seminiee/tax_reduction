@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 29 (explain-placeholder-substitution — AI가 금액을 자유 서술로 직접 타이핑하다 옮겨 적는 과정에서 오기재하는 문제 자체를 없애기 위해, {{필드명}} 플레이스홀더 치환 방식으로 구조 전환)
-- **마지막 업데이트**: 2026-07-12 (Stage 29 완료, 재배포는 사용자 확인 후 별도 진행)
+- **완료**: Stage 30 (deploy-and-verify — Stage 27~29 종합 프로덕션 재배포 및 검증). **모든 스테이지(0~30) 완료** — 최종 URL: https://taxreduction.vercel.app
+- **마지막 업데이트**: 2026-07-12 (Stage 30 완료)
 
 ## 스테이지 체크리스트
 
@@ -40,6 +40,7 @@
 | 27 | trade-tax-model-correction (매매차익 세율을 15.4%/한계세율로 정정) | done |
 | 28 | explain-manwon-formatting-fix (원-만원 환산 자릿수 오류 수정) | done |
 | 29 | explain-placeholder-substitution (자유 서술 숫자 → {{필드명}} 플레이스홀더 치환 구조 전환) | done |
+| 30 | deploy-and-verify (Stage 27~29 종합 프로덕션 재배포 및 검증) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -384,5 +385,16 @@
 - PROMPTS.md 2절에 "v4(hold)/v8(trade)" 섹션 추가(v3/v7 보존): 신규 프롬프트 원문, 단위 중복 버그 발견/수정 과정, 5회 재현 테스트 실제 응답 원문 기록.
 - `npm run test`(95개 통과 — 기존 91개 + 신규 4개, 스모크 12개 스킵), `npm run lint`, `npm run build` 모두 클린.
 - feature_list.json Stage 29 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 30)
+- feature_list.json에 Stage 30(deploy-and-verify) 신규 추가(0~29 미변경).
+- rate-limit 재확인: `checkRateLimit` 적용 라우트가 여전히 5개(`/api/chat`, `/api/explain`, `/api/parse`, `/api/parse-dividend`, `/api/parse-trade`)뿐이고 `/api/simulate`는 의도대로 미적용(순수 계산, AI 미호출) 상태임을 grep으로 확인. 로컬(단일 프로세스)에서 `/api/parse-trade`에 연속 요청 시 11번째부터 정확히 429+Retry-After 발생 확인. 프로덕션에서는 20개 병렬 요청까지 429가 관측되지 않았는데, 이는 Stage 9에서 이미 문서화된 알려진 한계(Vercel 서버리스 인스턴스가 여러 개 뜨면 인스턴스별로 카운터가 분리됨) 때문으로 판단 — 로컬에서 로직 자체가 정상 동작함을 확인했으므로 새로운 회귀는 아니라고 결론.
+- `npm audit`: 기존 postcss(next 내부 번들 의존) moderate 2건만 잔존, 신규 취약점 없음(Stage 27~29에서 package.json 변경 없었음).
+- `npm run test`(95개, 스모크 12개 스킵)/`npm run lint`/`npm run build` 모두 클린 확인 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright, `stage30-check.mjs`):
+  - **Stage 27(세율 모델)**: `/`에 "15.4%"/"한계세율" 라벨이 정상 노출되고 "22%"/"250만원"/"기본공제" 텍스트는 화면 전체에서 전혀 검출되지 않음. 매수 수량을 100→500→1,000→2,000주로 바꾸며 확인한 일반계좌 세금이 ₩46,200→₩231,000→₩462,000→₩924,000으로 정확히 선형 비례(Stage 27 로컬 확인값과 프로덕션에서 동일하게 재현).
+  - **Stage 28/29(AI 설명 정확성)**: 서로 다른 3가지 조건(20,000원/1,500주, 115,000원/100주, 10,000원/2,000주(3,000주 요청이 슬라이더 max로 자동 클램프됨, 초과분 5,800만원의 큰 자릿수 케이스))으로 "AI 설명 보기"를 각각 실행 — 3회 모두 화면에 미치환 `{{`/`}}` 없음, "주주"/"원원"/"%%"/"만원만원" 같은 단위 중복 없음, "이 설명은 AI가 생성했으며 위 계산 결과가 항상 정확한 기준입니다" 안전망 문구가 매번 노출됨을 확인. 세 번째(가장 큰 금액) 케이스에서도 "초과분인 5,800만원"이 실제 계산값과 정확히 일치함을 화면 숫자와 대조해 확인.
+  - **기존 회귀**: `/dividend` 정상 렌더 확인. `/`에서 챗봇에 "지금 계산한 조건 요약해줘" 전송 후 상단 네비 링크로 `/dividend`로 client-side 이동해도 이전 대화가 그대로 유지됨을 확인(전체 페이지 리로드가 아닌 실제 네비 링크 클릭으로 검증 — ChatProvider가 app/layout.tsx에 상주하는 구조이므로 `page.goto()` 방식의 전체 리로드로는 이 특성이 올바르게 검증되지 않는다는 점을 인지하고 클릭 기반으로 전환함). 3개 시나리오 + 챗봇 전 과정에서 콘솔 에러 0건.
+- feature_list.json Stage 30 done 처리, 커밋. **모든 스테이지(0~30) 완료** — 최종 URL: https://taxreduction.vercel.app
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
