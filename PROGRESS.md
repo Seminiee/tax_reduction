@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 27 (trade-tax-model-correction — trade-calculator.ts 일반계좌 세율을 22%+250만원 공제에서 15.4%/금융소득종합과세 한계세율로 정정, "그래프가 안 움직인다" 증상 근본 원인 해결. general-account.ts는 무변경). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-12 (Stage 27 완료)
+- **완료**: Stage 28 (explain-manwon-formatting-fix — AI가 원 단위 숫자를 직접 "만원"으로 환산하다 자릿수를 틀리는 문제를 사전 포맷 문자열 제공으로 해결)
+- **마지막 업데이트**: 2026-07-12 (Stage 28 완료, 재배포는 사용자 확인 후 별도 진행)
 
 ## 스테이지 체크리스트
 
@@ -38,6 +38,7 @@
 | 25 | production-copy-polish (종목 예시 교체 + 내부 문구 정리) | done |
 | 26 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 27 | trade-tax-model-correction (매매차익 세율을 15.4%/한계세율로 정정) | done |
+| 28 | explain-manwon-formatting-fix (원-만원 환산 자릿수 오류 수정) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -354,5 +355,18 @@
 - 실제 API로 확인: explain(kind: trade)이 "일반계좌 강제전환분 500주의 순이익 1,500만 원에는 배당소득세 15.4%가 적용되어 231,000원이 부과됩니다"로 정확히 서술(22% 언급 완전히 사라짐). 챗봇도 "이 서비스가 다루는 국내상장 해외ETF... 매매차익도... 15.4% 배당소득세가 적용됩니다. 22% 양도소득세는 해외 거래소에 직접 상장된 종목을 직접 매수할 때만 적용되는데... 이 서비스는 국내상장 ETF 중심"이라고 정확히 구분해 답변. (부수 발견 2건, 이번 스코프 밖이라 기록만 함: explain 응답에서 "초과분 1,000만원"이 실제로는 100만원인 자릿수 오기재가 v5/v6 양쪽에서 재현됨 — 세금 계산 자체는 정확함.)
 - `npm run test`(87개 통과 — 기존 82개 + 신규 5개, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린. `lib/tax/tax-engine.test.ts`(general-account.ts 테스트)는 `git diff`로 무변경 확인.
 - feature_list.json Stage 27 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 28)
+- feature_list.json에 Stage 28(explain-manwon-formatting-fix) 신규 추가(0~27 미변경).
+- **버그 배경**: Stage 27에서 부수적으로 발견해 기록만 해두었던 오류("ISA 초과분 100만원"을 AI가 "초과분 1,000만원"으로 서술, 10배 자릿수 오기재) — 근본 원인은 AI가 원 단위 숫자(순이익 300만원 − 비과세 한도 200만원 = 100만원)를 스스로 10,000으로 나눠 "만원" 단위로 환산해야 했다는 것.
+- `lib/ai/explain-simulation-result.ts`: `formatManwon()` 헬퍼(`Math.round(amountKrw/10_000)` + `toLocaleString`) 신규 추가. `buildTradeExplainPayload`가 `isaTaxableExcessKrw`(신규 계산: netGainForIsaKrw − taxFreeLimitKrw)와 `isaTaxableExcessKrwFormatted`("100만원")를 payload에 추가하도록 확장. hold 쪽도 기존엔 payload 빌더 함수가 없어 `explainSimulationResult`가 `JSON.stringify(input)`을 그대로 보내고 있었는데, 신규 `buildHoldExplainPayload` 함수를 만들어 `isaAccount.taxableExcessFormatted`를 동일한 방식으로 추가.
+- `EXPLAIN_SYSTEM_PROMPT_TRADE`(v6→v7): 규칙 9 추가("만원/억원 단위로 표현할 때는 반드시 XxxFormatted 문자열을 그대로 사용하고 직접 환산하지 마세요"). `EXPLAIN_SYSTEM_PROMPT_HOLD`(v2→v3): 동일 취지의 규칙 6 추가.
+- **점검(사용자 요청 2번/4번)**: `generalOnlyTaxKrw`/`generalForcedTaxKrw`/`totalTaxKrw`/`savedAmountKrw` 등 나머지 금액 필드는 Stage 22~27에서 캡처한 실제 API 응답을 전수 재확인한 결과 AI가 이미 원 단위 그대로("330,000원" 등)만 인용하고 있어 `Formatted` 짝이 필요 없다고 판단, 추가하지 않음. 챗봇(`chat-with-tax-assistant.ts`)의 고정 프롬프트("200만원"/"400만원"/"2,000만원" 등은 정적 텍스트, 값 변환 아님)와 3가지 동적 템플릿(hold/trade/dividend, 전부 `.toLocaleString("ko-KR")}원`으로 원 단위만 주입)을 grep으로 전수 점검한 결과 AI에게 원→만원 환산을 요구하는 지점이 전혀 없어 **변경 불필요** 결론.
+- CLAUDE.md 절대 규칙에 7번 신규 추가: "금액을 원 단위가 아닌 만원/억원 등 한국어 단위로 서술해야 하는 경우, AI에게 직접 환산을 맡기지 말고 미리 포맷된 문자열을 payload에 함께 제공한다. 원-만원 환산은 자릿수 오류가 발생하기 쉬운 지점이다(Stage 28에서 실제 발견)."
+- `lib/ai/explain-simulation-result.test.ts`: 신규 4개 테스트(trade `isaTaxableExcessKrwFormatted==="100만원"` 검증, 프롬프트 규칙 문자열 포함 검증, hold `taxableExcessFormatted==="269만원"` 검증, hold 프롬프트 규칙 문자열 포함 검증) 추가. 기존 Stage 22 테스트의 `expect(sentPayload.result).toEqual(tradeInput.result)`가 신규 필드 2개 때문에 실패해 `.toMatchObject(...)`로 수정(부분 일치로 완화, 원래 필드들은 여전히 정확히 검증됨).
+- `lib/ai/explain-simulation-result.smoke.test.ts`: Stage 27과 동일한 재현 시나리오(ISA 순이익 300만원/비과세한도 200만원/초과분 100만원, `SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT`)로 3회 연속 재호출하는 신규 테스트 추가, 매회 "100만원" 포함 + "1,000만원" 미포함 assert. `RUN_AI_SMOKE_TEST=1`로 실제 실행한 결과 **3/3회 모두 "100만원"으로 정확히 서술**, "1,000만원"은 한 번도 나오지 않음(PROMPTS.md 2절 v7 참고). (부수 발견, 이번 스코프 밖: 1회차 응답에서 ISA 세금 자체를 "9,900원"으로 잘못 서술한 산발적 오류 1건 — `isaTaxKrw`는 원래 `Formatted` 필드가 없고 payload에는 99,000원이 정확히 전달됨, 만원 환산과 무관한 별개 오류라 기록만 함.)
+- PROMPTS.md 2절에 "v3(hold)/v7(trade)" 섹션 추가(v2/v6 보존): 신규 프롬프트 원문, payload 예시, 3회 재현 테스트 실제 응답 원문 기록.
+- `npm run test`(91개 통과 — 기존 87개 + 신규 4개, 스모크 12개 스킵), `npm run lint`, `npm run build` 모두 클린.
+- feature_list.json Stage 28 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

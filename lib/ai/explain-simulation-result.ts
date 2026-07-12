@@ -63,25 +63,29 @@ export interface TradeExplainInput {
 // ChatCurrentSimulation(lib/ai/chat-with-tax-assistant.ts)과 동일한 kind 판별 유니언 패턴.
 export type ExplainSimulationInput = HoldExplainInput | TradeExplainInput;
 
-// v2 (Stage 25): 거치식 결과 해설. config/tax-rules.json의 verification_status를 "미검증
-// 초안 — ... (skills.md 2절 참고)" 같은 내부 문서 참조 문구에서 사용자向 자연어 문구로 바꾸면서,
-// 더 이상 "미검증"이라는 단어를 포함하지 않게 되어 규칙 4의 문자열 매칭 기준을 "확정되지 않았"
-// (새 문구에 실제로 등장하는 표현)으로 교체했다. v1(Stage 4) 원문은 PROMPTS.md에 이력으로 보존.
-// 실사용 원문은 PROMPTS.md에도 동일하게 기록되어 있다 (지원서 제출용, 수정 시 함께 갱신할 것).
+// v3 (Stage 28): isaAccount.taxableExcess(ISA 초과분)가 원 단위 raw 숫자로만 제공되어, AI가
+// 이를 "만원" 단위로 직접 환산해 서술하다 자릿수를 틀리는 문제가 trade 쪽(v6)에서 실제로 발견됐다
+// (PROMPTS.md 2절 v6 응답 참고 — "초과분 100만원"을 "1,000만원"으로 잘못 서술). 같은 위험이
+// hold의 isaAccount.taxableExcess에도 구조적으로 존재해(원 단위 raw 필드) 미리 계산한
+// taxableExcessFormatted를 payload에 추가하고 규칙 6을 새로 넣었다. v1(Stage 4)/v2(Stage 25)
+// 원문은 PROMPTS.md에 이력으로 보존. 실사용 원문은 PROMPTS.md에도 동일하게 기록되어 있다
+// (지원서 제출용, 수정 시 함께 갱신할 것).
 export const EXPLAIN_SYSTEM_PROMPT_HOLD = `당신은 세금 시뮬레이션 결과를 설명하는 한국어 해설가입니다. 아래 규칙을 반드시 지키세요.
 
 1. 결과 JSON을 근거로 왜 이런 세후 금액 차이가 나오는지 설명하세요. 손익통산, 비과세 한도, 분리과세, 종합과세 중 실제로 관련 있는 키워드를 최소 1개 포함하세요.
 2. 3~5문장의 한국어로 작성하세요.
 3. "무조건 ISA로 가세요", "반드시 ~하세요" 같은 확정적 조언은 절대 쓰지 마세요. 항상 "이 조건에서는 ~", "~일 때는 ~" 같은 조건부 표현을 쓰세요.
 4. verificationStatus에 "확정되지 않았"과 같이 미확정 사항이 있다는 표현이 포함되어 있다면, 설명 마지막에 일부 세부 사항이 아직 최종 확인되지 않았다는 점을 자연스러운 한 문장으로 언급하세요.
-5. 순수 텍스트만 반환하세요. 마크다운이나 JSON으로 감싸지 마세요.`;
+5. 순수 텍스트만 반환하세요. 마크다운이나 JSON으로 감싸지 마세요.
+6. isaAccount.taxableExcess(ISA 초과분)를 만원/억원 단위로 언급할 때는 반드시 isaAccount.taxableExcessFormatted를 그대로 인용하세요. taxableExcess(원 단위 숫자)를 직접 나누거나 환산해서 새로 표현하지 마세요.`;
 
-// v6 (Stage 27): trade-calculator.ts의 일반계좌 세율이 22% 양도소득세(+250만원 기본공제)에서
-// 15.4% 배당소득세(+금융소득종합과세 한계세율)로 정정되면서(skills.md 1절 참고 — 이 서비스가
-// 다루는 대상은 국내상장 해외ETF이지 해외 거래소 직접상장 종목이 아니다), 새로 추가된
-// isComprehensiveTaxationTriggered/marginalTaxRateApplied 필드를 fieldDescriptions에 반영하고
-// 규칙 8을 추가했다. v1(Stage 4)/v2(Stage 21)/v3(Stage 22)/v4(Stage 23)/v5(Stage 25) 원문은
-// PROMPTS.md에 이력으로 보존.
+// v7 (Stage 28): "초과분 100만원"을 AI가 "1,000만원"으로 잘못 서술하는 문제가 실제로 발견됐다
+// (PROMPTS.md 2절 v6 응답 참고) — netGainForIsaKrw - taxFreeLimitKrw처럼 payload에 없는 값을
+// AI가 직접 계산 + "만원" 단위 환산까지 하도록 요구한 것이 원인이다. buildTradeExplainPayload가
+// 이 초과분을 미리 계산해 isaTaxableExcessKrw(원)/isaTaxableExcessKrwFormatted("100만원" 같은
+// 문자열)로 함께 전달하도록 바꾸고, 규칙 9를 추가해 AI가 직접 환산하지 않고 이 문자열을 그대로
+// 인용하게 했다. v1(Stage 4)/v2(Stage 21)/v3(Stage 22)/v4(Stage 23)/v5(Stage 25)/v6(Stage 27)
+// 원문은 PROMPTS.md에 이력으로 보존.
 export const EXPLAIN_SYSTEM_PROMPT_TRADE = `당신은 세금 시뮬레이션 결과를 설명하는 한국어 해설가입니다. 아래 규칙을 반드시 지키세요.
 
 1. 결과 JSON을 근거로 왜 이런 세후 금액 차이가 나오는지 설명하세요. 손익통산, 비과세 한도, 분리과세, 종합과세 중 실제로 관련 있는 키워드를 최소 1개 포함하세요.
@@ -91,7 +95,8 @@ export const EXPLAIN_SYSTEM_PROMPT_TRADE = `당신은 세금 시뮬레이션 결
 5. 순수 텍스트만 반환하세요. 마크다운이나 JSON으로 감싸지 마세요.
 6. generalOnlyTaxKrw는 오직 "전량 일반계좌였다면"이라는 가상의 비교 문장에서만 언급하고, ISA 계좌의 실제 세금을 설명할 때는 절대 이 숫자를 쓰지 마세요. 한도초과로 일부 수량이 일반계좌로 강제 전환된 경우, 그 부분에 실제로 부과되는 세금은 generalForcedTaxKrw입니다. 각 필드의 정확한 의미는 함께 전달되는 fieldDescriptions를 참고하세요.
 7. taxFreeLimitKrw(ISA 비과세 한도, 수익 기준, 일반형 200만원/서민형 400만원)와 annualContributionLimitKrw(ISA 연간 납입한도, 투자 원금 기준, 2,000만원)는 완전히 다른 개념이며 절대 같은 숫자로 혼동해 서술하지 마세요. "비과세 한도"를 언급할 때는 반드시 taxFreeLimitKrw 값을, "납입한도"를 언급할 때는 반드시 annualContributionLimitKrw 값을 정확히 참조하세요.
-8. 이 서비스가 다루는 대상은 국내상장 해외ETF이므로 일반계좌 세율은 15.4% 배당소득세이며, generalForcedTaxKrw/generalOnlyTaxKrw는 이 순이익이 금융소득종합과세 기준(2,000만원)을 넘으면 초과분에 marginalTaxRateApplied(한계세율)가 적용된 결과입니다. 22% 양도소득세는 해외 거래소에 직접 상장된 종목을 직접 매수했을 때만 적용되는 세율이며 이 서비스의 계산 대상이 아니므로 언급하지 마세요.`;
+8. 이 서비스가 다루는 대상은 국내상장 해외ETF이므로 일반계좌 세율은 15.4% 배당소득세이며, generalForcedTaxKrw/generalOnlyTaxKrw는 이 순이익이 금융소득종합과세 기준(2,000만원)을 넘으면 초과분에 marginalTaxRateApplied(한계세율)가 적용된 결과입니다. 22% 양도소득세는 해외 거래소에 직접 상장된 종목을 직접 매수했을 때만 적용되는 세율이며 이 서비스의 계산 대상이 아니므로 언급하지 마세요.
+9. 금액을 만원/억원 단위로 표현할 때는 반드시 payload에 미리 제공된 XxxFormatted 문자열(예: isaTaxableExcessKrwFormatted)을 그대로 사용하고, 원 단위 숫자를 직접 나누거나 환산해서 새로 표현하지 마세요.`;
 
 // Stage 22/23/27: trade 결과의 각 세금·한도 필드가 정확히 무엇을 의미하는지 AI에게 명시적으로
 // 전달한다. generalOnlyTaxKrw/generalForcedTaxKrw(Stage 22)와 taxFreeLimitKrw/
@@ -123,11 +128,52 @@ const TRADE_RESULT_FIELD_DESCRIPTIONS: Record<keyof TradeExplainInput["result"],
   savedAmountKrw: "전량 일반계좌 가정(generalOnlyTaxKrw) 대비 실제 절세액",
 };
 
+// Stage 28: 원 단위 숫자를 AI가 직접 "만원" 단위로 나눠 서술하게 하면 자릿수를 틀리는 경우가
+// 실제로 있었다(예: 100만원을 1,000만원으로 서술). 그런 값은 여기서 미리 계산해 문자열로
+// 만들어 payload에 함께 넘긴다 — AI는 이 문자열을 그대로 인용하기만 하면 된다.
+function formatManwon(amountKrw: number): string {
+  const manwon = Math.round(amountKrw / 10_000);
+  return `${manwon.toLocaleString("ko-KR")}만원`;
+}
+
+const TRADE_DERIVED_FIELD_DESCRIPTIONS = {
+  isaTaxableExcessKrw:
+    "ISA 편입분의 순이익(netGainForIsaKrw)에서 비과세 한도(taxFreeLimitKrw)를 뺀 금액(원 단위) — ISA 분리과세 9.9%가 실제로 적용되는 초과분이다.",
+  isaTaxableExcessKrwFormatted:
+    "isaTaxableExcessKrw를 미리 '만원' 단위로 환산해둔 문자열(예: '100만원'). 이 초과분을 만원/억원 단위로 언급할 때는 반드시 이 문자열을 그대로 인용하고, isaTaxableExcessKrw(원 단위 숫자)를 직접 나누거나 환산하지 마세요.",
+} as const;
+
 export function buildTradeExplainPayload(input: TradeExplainInput) {
+  const isaTaxableExcessKrw = Math.max(
+    0,
+    input.result.netGainForIsaKrw - input.result.taxFreeLimitKrw
+  );
+
   return {
     input: input.input,
-    result: input.result,
-    fieldDescriptions: TRADE_RESULT_FIELD_DESCRIPTIONS,
+    result: {
+      ...input.result,
+      isaTaxableExcessKrw,
+      isaTaxableExcessKrwFormatted: formatManwon(isaTaxableExcessKrw),
+    },
+    fieldDescriptions: {
+      ...TRADE_RESULT_FIELD_DESCRIPTIONS,
+      ...TRADE_DERIVED_FIELD_DESCRIPTIONS,
+    },
+    verificationStatus: input.verificationStatus,
+  };
+}
+
+// Stage 28: hold(v3)의 isaAccount.taxableExcess도 trade의 isaTaxableExcessKrw와 같은 성격의
+// 원 단위 raw 필드라 같은 위험(AI가 직접 만원 단위로 환산하다 자릿수를 틀림)이 구조적으로 있다.
+export function buildHoldExplainPayload(input: HoldExplainInput) {
+  return {
+    input: input.input,
+    generalAccount: input.generalAccount,
+    isaAccount: {
+      ...input.isaAccount,
+      taxableExcessFormatted: formatManwon(input.isaAccount.taxableExcess),
+    },
     verificationStatus: input.verificationStatus,
   };
 }
@@ -140,7 +186,9 @@ export async function explainSimulationResult(
   const systemPrompt =
     input.kind === "trade" ? EXPLAIN_SYSTEM_PROMPT_TRADE : EXPLAIN_SYSTEM_PROMPT_HOLD;
   const messageContent =
-    input.kind === "trade" ? JSON.stringify(buildTradeExplainPayload(input)) : JSON.stringify(input);
+    input.kind === "trade"
+      ? JSON.stringify(buildTradeExplainPayload(input))
+      : JSON.stringify(buildHoldExplainPayload(input));
 
   const response = await client.messages.create(
     {

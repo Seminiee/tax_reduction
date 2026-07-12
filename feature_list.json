@@ -371,6 +371,20 @@
         "PROMPTS.md에 새 버전 추가(기존 버전 보존)"
       ],
       "done_criteria": "/에서 실제 세율이 15.4%/한계세율 기준으로 표시 계산됨, 그래프 미동작 증상 해결 확인, general-account.ts 테스트 무변경 통과, trade-calculator 테스트 새 기댓값으로 전부 통과, 일반계좌<ISA 역전 케이스 없음 확인 (재배포는 사용자 확인 후 별도 진행)"
+    },
+    {
+      "id": 28,
+      "name": "explain-manwon-formatting-fix",
+      "status": "done",
+      "tasks": [
+        "buildTradeExplainPayload에 isaTaxableExcessKrw/isaTaxableExcessKrwFormatted(만원 단위 사전 포맷 문자열) 추가",
+        "다른 큰 금액 필드(generalOnlyTaxKrw 등)도 만원 환산이 필요한지 점검 후 필요시 동일하게 처리",
+        "explain trade 시스템 프롬프트에 사전 포맷 문자열을 그대로 인용하라는 규칙 추가 (v7)",
+        "explain v1(hold), 챗봇 고정/동적 템플릿에도 같은 문제가 있는지 점검 후 필요시 수정",
+        "CLAUDE.md에 원-만원 환산 관련 규칙 추가",
+        "단위테스트로 만원 포맷 계산 고정, 스모크테스트로 동일 시나리오 3회 재호출해 정확성 확인"
+      ],
+      "done_criteria": "Stage 27에서 발견된 재현 시나리오를 3회 재호출해 전부 \"100만원\"으로 정확히 서술(더 이상 \"1,000만원\" 안 나옴), 기존 전체 테스트 통과 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

@@ -123,4 +123,20 @@ describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제
     expect(result.length).toBeGreaterThan(0);
     expect(result).not.toContain("무조건");
   }, 30_000);
+
+  // Stage 28 재현 테스트: SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT는 ISA 순이익 300만원 -
+  // 비과세한도 200만원 = 초과분 100만원인 시나리오다. 수정 전에는 AI가 이 초과분을 만원
+  // 단위로 직접 환산하다 "1,000만원"(10배 자릿수 오류)으로 서술한 적이 있었다. 확률적
+  // 생성이므로 최소 3회 재호출해 매번 "100만원"으로 정확히 서술되는지, "1,000만원"이
+  // 더 이상 나오지 않는지 확인한다.
+  it("kind: trade, 한도초과 케이스 — 3회 재호출해 ISA 초과분이 매번 '100만원'으로 정확히 서술된다 (Stage 28)", async () => {
+    for (let i = 1; i <= 3; i += 1) {
+      const result = await explainSimulationResult(SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT);
+
+      console.log(`[Stage 28 스모크 — 한도초과 케이스 재현 테스트 ${i}/3회차 실제 응답]\n${result}`);
+
+      expect(result).toContain("100만원");
+      expect(result).not.toContain("1,000만원");
+    }
+  }, 90_000);
 });

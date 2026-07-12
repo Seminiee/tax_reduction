@@ -11,11 +11,13 @@ vi.mock("@anthropic-ai/sdk", () => ({
 import {
   explainSimulationResult,
   buildTradeExplainPayload,
+  buildHoldExplainPayload,
   HAIKU_MODEL,
   EXPLAIN_SYSTEM_PROMPT_HOLD,
   EXPLAIN_SYSTEM_PROMPT_TRADE,
   type ExplainSimulationInput,
   type TradeExplainInput,
+  type HoldExplainInput,
 } from "./explain-simulation-result";
 
 const SAMPLE_INPUT: ExplainSimulationInput = {
@@ -89,18 +91,24 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     const [params] = mockCreate.mock.calls[0];
     expect(params.model).toBe(HAIKU_MODEL);
     expect(typeof params.system).toBe("string");
-    expect(JSON.parse(params.messages[0].content)).toEqual(SAMPLE_INPUT);
+    // Stage 28: hold payload도 buildHoldExplainPayload로 감싸져(isaAccount.taxableExcessFormatted
+    // 추가) 더 이상 원본 SAMPLE_INPUT과 완전히 같지 않다.
+    expect(JSON.parse(params.messages[0].content)).toEqual(
+      buildHoldExplainPayload(SAMPLE_INPUT as HoldExplainInput)
+    );
   });
 
-  it("kind가 trade면 EXPLAIN_SYSTEM_PROMPT_TRADE(v6)로, hold면 EXPLAIN_SYSTEM_PROMPT_HOLD(v2)로 호출한다", async () => {
+  it("kind가 trade면 EXPLAIN_SYSTEM_PROMPT_TRADE(v7)로, hold면 EXPLAIN_SYSTEM_PROMPT_HOLD(v3)로 호출한다", async () => {
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
     });
 
     await explainSimulationResult(SAMPLE_INPUT);
     expect(mockCreate.mock.calls[0][0].system).toBe(EXPLAIN_SYSTEM_PROMPT_HOLD);
-    // hold(v1)는 Stage 22 변경 대상이 아니므로 payload가 원본 input 그대로여야 한다.
-    expect(JSON.parse(mockCreate.mock.calls[0][0].messages[0].content)).toEqual(SAMPLE_INPUT);
+    // Stage 28: hold도 buildHoldExplainPayload로 감싸져 나간다(taxableExcessFormatted 추가).
+    expect(JSON.parse(mockCreate.mock.calls[0][0].messages[0].content)).toEqual(
+      buildHoldExplainPayload(SAMPLE_INPUT as HoldExplainInput)
+    );
 
     mockCreate.mockClear();
     await explainSimulationResult(SAMPLE_TRADE_INPUT);
@@ -119,7 +127,9 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
 
     expect(sentPayload).toEqual(buildTradeExplainPayload(tradeInput));
     expect(sentPayload.input).toEqual(tradeInput.input);
-    expect(sentPayload.result).toEqual(tradeInput.result);
+    // Stage 28: result에 isaTaxableExcessKrw(Formatted)가 추가돼 더 이상 원본 tradeInput.result와
+    // 완전히 같지 않다 — 원본 필드는 그대로 포함되어 있는지만 부분 일치로 확인한다.
+    expect(sentPayload.result).toMatchObject(tradeInput.result);
     expect(sentPayload.verificationStatus).toBe(tradeInput.verificationStatus);
 
     expect(sentPayload.fieldDescriptions.generalOnlyTaxKrw).toContain("가상 세금");
@@ -181,6 +191,45 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("국내상장 해외ETF");
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("22% 양도소득세");
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("이 서비스의 계산 대상이 아니므로");
+  });
+
+  it("Stage 28: trade payload의 isaTaxableExcessKrw/isaTaxableExcessKrwFormatted가 ISA 순이익-비과세한도를 정확히 '만원' 단위로 미리 계산해 제공한다", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
+    });
+
+    await explainSimulationResult(SAMPLE_TRADE_INPUT);
+
+    const sentPayload = JSON.parse(mockCreate.mock.calls[0][0].messages[0].content);
+
+    // netGainForIsaKrw(3,000,000) - taxFreeLimitKrw(2,000,000) = 1,000,000원 = "100만원"
+    expect(sentPayload.result.isaTaxableExcessKrw).toBe(1_000_000);
+    expect(sentPayload.result.isaTaxableExcessKrwFormatted).toBe("100만원");
+    expect(sentPayload.fieldDescriptions.isaTaxableExcessKrwFormatted).toContain("만원");
+  });
+
+  it("Stage 28: EXPLAIN_SYSTEM_PROMPT_TRADE가 XxxFormatted 문자열을 그대로 인용하라는 규칙을 포함한다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("XxxFormatted");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("직접 나누거나 환산해서 새로 표현하지 마세요");
+  });
+
+  it("Stage 28: hold payload의 isaAccount.taxableExcessFormatted가 '만원' 단위로 정확히 미리 계산된다", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
+    });
+
+    await explainSimulationResult(SAMPLE_INPUT);
+
+    const sentPayload = JSON.parse(mockCreate.mock.calls[0][0].messages[0].content);
+
+    // taxableExcess(2,693,281) / 10,000 = 269.3281 -> 반올림 269 -> "269만원"
+    expect(sentPayload.isaAccount.taxableExcess).toBe(2_693_281);
+    expect(sentPayload.isaAccount.taxableExcessFormatted).toBe("269만원");
+  });
+
+  it("Stage 28: EXPLAIN_SYSTEM_PROMPT_HOLD가 taxableExcessFormatted를 그대로 인용하라는 규칙을 포함한다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("taxableExcessFormatted");
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("직접 나누거나 환산해서 새로 표현하지 마세요");
   });
 
   it("텍스트 블록이 없으면 에러를 던진다", async () => {
