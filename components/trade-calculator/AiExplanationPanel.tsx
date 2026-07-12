@@ -45,7 +45,14 @@ export function AiExplanationPanel({ onExplain }: AiExplanationPanelProps) {
       {isOpen && (
         <div className="pt-4 mt-4 border-t border-slate-100">
           {isLoading && <p className="text-sm text-slate-400">설명 생성 중...</p>}
-          {explanation && <p className="text-sm text-slate-600 leading-relaxed">{explanation}</p>}
+          {explanation && (
+            <>
+              <p className="text-sm text-slate-600 leading-relaxed">{explanation}</p>
+              <p className="text-xs text-slate-400 mt-2">
+                이 설명은 AI가 생성했으며 위 계산 결과가 항상 정확한 기준입니다.
+              </p>
+            </>
+          )}
           {errorMessage && (
             <p className="text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2">
               {errorMessage}

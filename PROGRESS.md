@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 28 (explain-manwon-formatting-fix — AI가 원 단위 숫자를 직접 "만원"으로 환산하다 자릿수를 틀리는 문제를 사전 포맷 문자열 제공으로 해결)
-- **마지막 업데이트**: 2026-07-12 (Stage 28 완료, 재배포는 사용자 확인 후 별도 진행)
+- **완료**: Stage 29 (explain-placeholder-substitution — AI가 금액을 자유 서술로 직접 타이핑하다 옮겨 적는 과정에서 오기재하는 문제 자체를 없애기 위해, {{필드명}} 플레이스홀더 치환 방식으로 구조 전환)
+- **마지막 업데이트**: 2026-07-12 (Stage 29 완료, 재배포는 사용자 확인 후 별도 진행)
 
 ## 스테이지 체크리스트
 
@@ -39,6 +39,7 @@
 | 26 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 27 | trade-tax-model-correction (매매차익 세율을 15.4%/한계세율로 정정) | done |
 | 28 | explain-manwon-formatting-fix (원-만원 환산 자릿수 오류 수정) | done |
+| 29 | explain-placeholder-substitution (자유 서술 숫자 → {{필드명}} 플레이스홀더 치환 구조 전환) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -368,5 +369,20 @@
 - PROMPTS.md 2절에 "v3(hold)/v7(trade)" 섹션 추가(v2/v6 보존): 신규 프롬프트 원문, payload 예시, 3회 재현 테스트 실제 응답 원문 기록.
 - `npm run test`(91개 통과 — 기존 87개 + 신규 4개, 스모크 12개 스킵), `npm run lint`, `npm run build` 모두 클린.
 - feature_list.json Stage 28 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 29)
+- feature_list.json에 Stage 29(explain-placeholder-substitution) 신규 추가(0~28 미변경).
+- **버그 배경**: Stage 28(만원 환산 사전 포맷)로 "100만원→1,000만원" 자릿수 오류는 고쳤지만, 재현 테스트 중 전혀 다른 오류가 나왔다 — `isaTaxKrw`(99,000원)를 AI가 "9,900원"으로 옮겨 적은 것(PROMPTS.md 2절 v7 3회차 응답). 근본 원인은 "AI가 숫자를 직접 타이핑해 옮겨 적는 모든 지점"이 확률적 오기재 위험을 안고 있다는 것 — Stage 28은 계산(÷10,000)만 코드로 옮겼을 뿐 옮겨 적는 행위 자체는 여전히 AI 몫이었다.
+- `lib/ai/explain-simulation-result.ts` 구조 전환: AI는 이제 숫자를 전혀 쓰지 않고 `{{필드명}}` 플레이스홀더 토큰만 응답에 남기고, `substitutePlaceholders()`가 화면에 보여주기 전에 실제 값으로 치환한다. 목록에 없는 필드명은 `(값 확인 필요)`로 안전 처리(앱이 죽지 않음). `buildTradePlaceholderMap`/`buildHoldPlaceholderMap` 신규 함수가 각 kind의 payload를 사람이 읽는 값(콤마 그룹, %, 만원 등)으로 변환한 맵을 만든다. `detectUnsubstitutedNumbers()`는 치환 전 원문(플레이스홀더 토큰을 걷어낸 나머지)에 "숫자+원/만원/억원" 패턴이 남아있으면 콘솔 경고를 남긴다(사용자 노출은 막지 않음, 모니터링 목적).
+- `EXPLAIN_SYSTEM_PROMPT_TRADE`(v7→v8)/`EXPLAIN_SYSTEM_PROMPT_HOLD`(v3→v4): 기존 의미론적 규칙(generalOnlyTaxKrw/generalForcedTaxKrw 구분, taxFreeLimitKrw/annualContributionLimitKrw 구분, 15.4%/22% 구분)은 그대로 유지하고, "숫자를 직접 쓰지 말고 플레이스홀더만 쓰라"는 규칙과 사용 가능한 플레이스홀더 전체 목록을 추가했다. hold는 실제로는 v1(Stage4)/v2(Stage25)/v3(Stage28)까지만 존재해 v4가 정확한 번호이며, 사용자 요청의 "v8(hold)"는 PROMPTS.md에 v4로 정정해 기록(Stage 25도 hold/trade를 독립적으로 셌던 전례를 따름).
+- **재현 테스트 중 발견한 실제 버그(단위 중복)**: 첫 구현(금액 플레이스홀더에 "원", 수량에 "주" 단위를 미리 포함)으로 스모크 테스트를 돌리자 "1,500주주", "330,000원원" 같은 중복이 실제로 나왔다 — AI는 치환된 값을 보지 못하고 토큰 이름만 보고 쓰기 때문에, 토큰에 단위가 있는지와 무관하게 금액/수량 개념이면 습관적으로 자기 단위를 또 붙인다는 것을 확인. 반면 세율(%)과 이미 "만원"으로 환산해둔 XxxFormatted 필드는 중복이 관찰되지 않았다. 이 관찰에 따라 `Krw`로 끝나는 금액/수량/`holdingYears`는 단위 없이 순수 숫자만 주고 AI가 직접 단위를 붙이게(구조적으로 중복 불가), `Percent`/`Formatted`는 단위를 미리 포함한 채로 유지하도록 프롬프트와 포맷 함수를 재설계 — 재실행 결과 중복이 완전히 사라짐(PROMPTS.md 2절 v4/v8 "발견된 버그" 절 참고).
+- `components/trade-calculator/AiExplanationPanel.tsx`, `components/tax-simulator/AiExplanationPanel.tsx`(죽은 코드지만 여전히 explain을 호출하므로 함께 수정): AI 설명 결과 바로 아래에 "이 설명은 AI가 생성했으며 위 계산 결과가 항상 정확한 기준입니다." 안전망 문구를 상시 노출(기존 verificationStatus 안내문구와는 별개).
+- CLAUDE.md 절대 규칙에 8번 신규 추가: "AI가 생성하는 텍스트에 금전적으로 정확해야 하는 숫자가 포함되어야 할 때는, AI에게 숫자를 직접 쓰게 하지 말고 {{필드명}} 플레이스홀더로 쓰게 한 뒤 코드에서 치환한다."
+- `lib/ai/explain-simulation-result.test.ts`: 신규 4개 테스트(플레이스홀더 치환 end-to-end, 미지 필드 안전 처리, `substitutePlaceholders` 단위테스트, `detectUnsubstitutedNumbers` 단위테스트) 추가. Stage 28에서 추가했던 "XxxFormatted 문자열을 그대로 인용" 규칙 검증 테스트 2건은 그 규칙 자체가 플레이스홀더 방식으로 완전히 대체되어 제거되고, "플레이스홀더만 쓰라"는 새 규칙을 검증하는 테스트로 교체.
+- `lib/ai/explain-simulation-result.smoke.test.ts`: Stage 27/28과 동일한 재현 시나리오(ISA 순이익 300만원/비과세한도 200만원/초과분 100만원)로 explain을 5회 재호출하는 신규 테스트로 기존 Stage 28의 3회 테스트를 대체(요구사항 상위 호환 — 100만원 정확성 확인은 그대로 유지하고, `{{`/`}}` 미치환 여부·"9,900원" 재발 여부·"693,000원" 언급 시 정확성까지 추가 검증). `RUN_AI_SMOKE_TEST=1`로 실제 실행한 결과 **5/5회 모두 정확** — 치환 안 된 `{{ }}` 토큰 없음, "100만원"/"99,000원"/"693,000원"(언급된 4회 전부) 모두 정확, "1,000만원"/"9,900원" 재발 없음, "주주"/"원원" 단위 중복도 재발 없음. 유일한 사소한 흠: 5회차에서 `annualContributionLimitKrw`의 "원" 단위 표기가 1건 누락(숫자 자체는 정확) — 오기재가 아닌 단위 생략이라 이번 스테이지 목표(숫자 오기재 제거)는 달성으로 판단.
+- 로컬 dev 서버 + Playwright로 `/`에서 실제 브라우저 확인: "AI 설명 보기" 클릭 → 실제 API 호출 결과에 `{{`/`}}` 잔존 없음, 모든 금액(100만원/99,000원/231,000원/693,000원/330,000원/363,000원) 정확, 안전망 문구("이 설명은 AI가 생성했으며...") 정상 노출, 콘솔 에러 0건.
+- PROMPTS.md 2절에 "v4(hold)/v8(trade)" 섹션 추가(v3/v7 보존): 신규 프롬프트 원문, 단위 중복 버그 발견/수정 과정, 5회 재현 테스트 실제 응답 원문 기록.
+- `npm run test`(95개 통과 — 기존 91개 + 신규 4개, 스모크 12개 스킵), `npm run lint`, `npm run build` 모두 클린.
+- feature_list.json Stage 29 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

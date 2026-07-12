@@ -12,6 +12,8 @@ import {
   explainSimulationResult,
   buildTradeExplainPayload,
   buildHoldExplainPayload,
+  substitutePlaceholders,
+  detectUnsubstitutedNumbers,
   HAIKU_MODEL,
   EXPLAIN_SYSTEM_PROMPT_HOLD,
   EXPLAIN_SYSTEM_PROMPT_TRADE,
@@ -208,9 +210,12 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     expect(sentPayload.fieldDescriptions.isaTaxableExcessKrwFormatted).toContain("만원");
   });
 
-  it("Stage 28: EXPLAIN_SYSTEM_PROMPT_TRADE가 XxxFormatted 문자열을 그대로 인용하라는 규칙을 포함한다", () => {
-    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("XxxFormatted");
-    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("직접 나누거나 환산해서 새로 표현하지 마세요");
+  it("Stage 29: EXPLAIN_SYSTEM_PROMPT_TRADE가 숫자를 직접 쓰지 말고 플레이스홀더만 쓰라는 규칙과 사용 가능한 목록을 포함한다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("절대 아라비아 숫자로 직접 쓰지 말고");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("사용 가능한 플레이스홀더");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("{{isaTaxableExcessKrw}}");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("{{isaTaxKrw}}");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("{{totalTaxKrw}}");
   });
 
   it("Stage 28: hold payload의 isaAccount.taxableExcessFormatted가 '만원' 단위로 정확히 미리 계산된다", async () => {
@@ -227,9 +232,78 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     expect(sentPayload.isaAccount.taxableExcessFormatted).toBe("269만원");
   });
 
-  it("Stage 28: EXPLAIN_SYSTEM_PROMPT_HOLD가 taxableExcessFormatted를 그대로 인용하라는 규칙을 포함한다", () => {
-    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("taxableExcessFormatted");
-    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("직접 나누거나 환산해서 새로 표현하지 마세요");
+  it("Stage 29: EXPLAIN_SYSTEM_PROMPT_HOLD가 숫자를 직접 쓰지 말고 플레이스홀더만 쓰라는 규칙과 사용 가능한 목록을 포함한다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("절대 아라비아 숫자로 직접 쓰지 말고");
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("사용 가능한 플레이스홀더");
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("{{isaTaxableExcessKrw}}");
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("{{isaTaxKrw}}");
+    expect(EXPLAIN_SYSTEM_PROMPT_HOLD).toContain("{{principalKrw}}");
+  });
+
+  it("Stage 29: AI 응답의 {{필드명}} 플레이스홀더가 실제 값으로 정확히 치환된 최종 텍스트가 반환된다 (trade)", async () => {
+    mockCreate.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: "ISA 초과분인 {{isaTaxableExcessKrw}}원({{isaTaxableExcessKrwFormatted}})에 {{isaSeparateTaxRatePercent}}가 적용되어 세금이 {{isaTaxKrw}}원이 됩니다. 총 세금은 {{totalTaxKrw}}원입니다.",
+        },
+      ],
+    });
+
+    const result = await explainSimulationResult(SAMPLE_TRADE_INPUT);
+
+    // netGainForIsaKrw(3,000,000) - taxFreeLimitKrw(2,000,000) = 1,000,000원
+    expect(result).toContain("1,000,000원");
+    expect(result).toContain("100만원");
+    expect(result).toContain("9.9%");
+    expect(result).toContain("99,000원");
+    expect(result).toContain("330,000원");
+    expect(result).not.toContain("{{");
+    expect(result).not.toContain("}}");
+  });
+
+  it("Stage 29: 목록에 없는 플레이스홀더는 안전 문구로 대체되고 앱이 죽지 않는다 (trade)", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "예상 절세액은 {{totallyMadeUpFieldName}}입니다." }],
+    });
+
+    const result = await explainSimulationResult(SAMPLE_TRADE_INPUT);
+
+    expect(result).toContain("(값 확인 필요)");
+    expect(result).not.toContain("{{");
+  });
+
+  it("Stage 29: substitutePlaceholders가 알려진 필드는 값으로, 알 수 없는 필드는 안전 문구로 치환한다", () => {
+    const placeholderMap = { totalTaxKrw: "330,000원" };
+
+    expect(substitutePlaceholders("총 세금은 {{totalTaxKrw}}입니다.", placeholderMap)).toBe(
+      "총 세금은 330,000원입니다."
+    );
+    expect(substitutePlaceholders("절세액은 {{unknownField}}입니다.", placeholderMap)).toBe(
+      "절세액은 (값 확인 필요)입니다."
+    );
+    expect(substitutePlaceholders("플레이스홀더가 없는 문장입니다.", placeholderMap)).toBe(
+      "플레이스홀더가 없는 문장입니다."
+    );
+  });
+
+  it("Stage 29: detectUnsubstitutedNumbers가 플레이스홀더 없이 직접 쓴 금액은 감지하고, 플레이스홀더로만 쓴 문장은 통과시킨다", () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(detectUnsubstitutedNumbers("초과분 100만원에 9.9%가 적용되어 99,000원이 됩니다.")).toBe(
+      true
+    );
+    expect(consoleWarnSpy).toHaveBeenCalled();
+
+    consoleWarnSpy.mockClear();
+    expect(
+      detectUnsubstitutedNumbers(
+        "초과분 {{isaTaxableExcessKrwFormatted}}에 {{isaSeparateTaxRatePercent}}가 적용되어 {{isaTaxKrw}}이 됩니다."
+      )
+    ).toBe(false);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    consoleWarnSpy.mockRestore();
   });
 
   it("텍스트 블록이 없으면 에러를 던진다", async () => {

@@ -125,18 +125,37 @@ describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제
   }, 30_000);
 
   // Stage 28 재현 테스트: SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT는 ISA 순이익 300만원 -
-  // 비과세한도 200만원 = 초과분 100만원인 시나리오다. 수정 전에는 AI가 이 초과분을 만원
-  // 단위로 직접 환산하다 "1,000만원"(10배 자릿수 오류)으로 서술한 적이 있었다. 확률적
-  // 생성이므로 최소 3회 재호출해 매번 "100만원"으로 정확히 서술되는지, "1,000만원"이
-  // 더 이상 나오지 않는지 확인한다.
-  it("kind: trade, 한도초과 케이스 — 3회 재호출해 ISA 초과분이 매번 '100만원'으로 정확히 서술된다 (Stage 28)", async () => {
-    for (let i = 1; i <= 3; i += 1) {
+  // 비과세한도 200만원 = 초과분 100만원인 시나리오다. Stage 28(포맷 문자열 인용)에서는 AI가
+  // 이 초과분을 만원 단위로 직접 환산하다 "1,000만원"(10배 자릿수 오류)으로 서술한 적이
+  // 있었고, Stage 28 수정 이후에도 다른 숫자(isaTaxKrw)를 "9,900원"으로 잘못 옮겨 적는
+  // 사례가 나왔다(PROMPTS.md 2절 v7 참고) — AI가 숫자를 "직접 타이핑"하는 한 어떤 숫자든
+  // 확률적으로 틀릴 수 있다는 뜻이었다. Stage 29는 AI가 숫자를 전혀 쓰지 않고 {{필드명}}
+  // 플레이스홀더만 쓰게 하고 코드가 치환하므로, 이 시나리오를 5회 재호출해 (1) 최종 텍스트에
+  // 치환되지 않은 {{ }} 토큰이 남아있지 않은지, (2) 모든 금액이 정확한지(오기재 없이) 확인한다.
+  it("kind: trade, 한도초과 케이스 — 5회 재호출해 플레이스홀더가 전부 정확한 값으로 치환된다 (Stage 29)", async () => {
+    for (let i = 1; i <= 5; i += 1) {
       const result = await explainSimulationResult(SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT);
 
-      console.log(`[Stage 28 스모크 — 한도초과 케이스 재현 테스트 ${i}/3회차 실제 응답]\n${result}`);
+      console.log(`[Stage 29 스모크 — 한도초과 케이스 재현 테스트 ${i}/5회차 최종 치환 텍스트]\n${result}`);
 
-      expect(result).toContain("100만원");
+      // 치환되지 않은 플레이스홀더 토큰이 남아있지 않아야 한다(=존재하지 않는 필드명을 AI가
+      // 지어냈거나, 미처 치환되지 않은 경우 모두 여기서 잡힌다).
+      expect(result).not.toContain("{{");
+      expect(result).not.toContain("}}");
+
+      // Stage 28에서 반복 관찰된 자릿수 오류("1,000만원")와, Stage 28 수정 이후 발견된
+      // 별개의 자체 오기재("9,900원")가 더 이상 등장하지 않아야 한다.
       expect(result).not.toContain("1,000만원");
+      expect(result).not.toContain("9,900원");
+
+      // 실제로 쓰였다면(AI가 해당 문장을 구성했다면) 반드시 정확한 값이어야 한다 — 언급
+      // 여부 자체는 AI의 자유 서술에 달려있으므로 강제하지 않되, 언급된 숫자는 항상 정답이다.
+      if (result.includes("초과분") || result.includes("초과되는") || result.includes("초과인")) {
+        expect(result).toContain("100만원");
+      }
+      if (result.includes("전량 일반계좌")) {
+        expect(result).toContain("693,000원");
+      }
     }
-  }, 90_000);
+  }, 150_000);
 });

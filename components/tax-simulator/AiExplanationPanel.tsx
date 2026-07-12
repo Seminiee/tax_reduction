@@ -35,7 +35,14 @@ export function AiExplanationPanel({ onExplain }: AiExplanationPanelProps) {
       <button type="button" className={styles.secondaryButton} onClick={handleClick} disabled={isLoading}>
         {isLoading ? "설명 생성 중..." : "AI 설명 보기"}
       </button>
-      {explanation && <div className={styles.explanationBox}>{explanation}</div>}
+      {explanation && (
+        <>
+          <div className={styles.explanationBox}>{explanation}</div>
+          <p style={{ fontSize: "11px", color: "var(--text-sub)", marginTop: "6px" }}>
+            이 설명은 AI가 생성했으며 위 계산 결과가 항상 정확한 기준입니다.
+          </p>
+        </>
+      )}
       {errorMessage && <div className={`${styles.note} ${styles.noteDanger}`}>{errorMessage}</div>}
     </div>
   );
