@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 19 (dividend-comprehensive-tax-fix — otherFinancialIncomeKrw=0이어도 배당금 단독으로 종합과세 기준 초과 시 정상 트리거되도록 수정). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-11 (Stage 19 완료)
+- **완료**: Stage 20 (deploy-and-verify — 프로덕션 재배포 완료, https://taxreduction.vercel.app). 모든 스테이지(0~20) 완료.
+- **마지막 업데이트**: 2026-07-12 (Stage 20 완료)
 
 ## 스테이지 체크리스트
 
@@ -30,6 +30,7 @@
 | 17 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 18 | dividend-simplify (다른 금융소득 고급설정 UI 제거) | done |
 | 19 | dividend-comprehensive-tax-fix (배당금 단독 종합과세 트리거 수정) | done |
+| 20 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -260,5 +261,13 @@
 - `npm run test`(73개 통과 — 기존 71개 + 신규 2개, 스모크 9개 스킵. `dividend-calculator.test.ts` 기존 10개 케이스 포함 전부 그대로 통과), `npm run lint`, `npm run build` 모두 클린.
 - 로컬 dev 서버 + Playwright로 실제 확인: AI 자연어 입력("리얼티인컴 300주 보유, 주가 5만원, 주당 배당금 100,000원")으로 배당금 3,000만원 단독 시나리오를 실행한 결과, 일반계좌 세금이 "₩4,580,000 (금융소득종합과세 대상, 한계세율 15% 적용)"으로 정확히 표시됨(수정 전이었다면 otherFinancialIncomeKrw=0이라 종합과세 미트리거로 "₩4,620,000(현지 원천징수 + 국내 배당소득세 15.4% 기준, 30,000,000×15.4%)"로 잘못 표시됐을 것). ISA 세금 ₩2,772,000, 세금이득 ₩1,808,000 — 신규 단위테스트 기대값과 완전히 일치.
 - feature_list.json Stage 19 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 20)
+- feature_list.json에 Stage 20(deploy-and-verify) 신규 추가(0~19 미변경).
+- rate-limit 재확인: 5개 API 라우트(`/api/chat`, `/api/explain`, `/api/parse`, `/api/parse-dividend`, `/api/parse-trade`) 모두 `lib/rate-limit.ts` 정상 적용 확인. `npm audit`: 신규 취약점 없음, 기존 postcss(next 내부 의존) moderate 1건만 잔존(Stage 17/19와 동일).
+- `npm run build`/`npm run lint`/`npm run test`(73개, 스모크 9개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright): AI 자연어 입력("리얼티인컴 300주 보유, 주가 5만원, 주당 배당금 100,000원")으로 배당 3,000만원 단독 시나리오 실행 → "세금 ₩4,580,000 (금융소득종합과세 대상, 한계세율 15% 적용)"으로 Stage 19 수정 내용이 프로덕션에서도 정확히 재현됨(로컬 단위테스트 기대값과 완전히 일치). `/dividend`에 "고급설정" 텍스트 매치 0건(UI 완전히 제거됨), 새 안내문구("이 계산은 배당금 외 다른 금융소득은 고려하지 않습니다...") 정상 노출.
+- 챗봇 히스토리 유지 확인: `/`에서 "안녕하세요" 전송 후 실제 앱 내 네비게이션 링크 클릭으로 `/trade`→`/dividend`까지 이동(클라이언트 사이드 라우팅) — 두 페이지 모두에서 기존 대화가 그대로 유지됨을 확인. (참고: `page.goto()`로 강제 풀리로드하면 React 상태가 초기화되어 히스토리가 사라지는 것처럼 보이는데, 이는 앱 버그가 아니라 SPA 네비게이션 특성상 당연한 동작 — 실제 사용자는 항상 인앱 링크로 이동하므로 문제 없음을 링크 클릭 방식 재검증으로 확인.)
+- feature_list.json Stage 20 done 처리, 커밋. **모든 스테이지(0~20) 완료** — 최종 URL: https://taxreduction.vercel.app
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

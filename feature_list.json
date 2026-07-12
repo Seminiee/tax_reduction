@@ -262,6 +262,19 @@
         "AI 파싱/챗봇 컨텍스트에 이전 트리거 조건(otherFinancialIncomeKrw > 0 전제)을 가정한 문구가 남아있는지 확인/정리"
       ],
       "done_criteria": "신규 테스트 통과 + 기존 전체 테스트(otherFinancialIncomeKrw 관련 기존 케이스 포함) 그대로 통과, 배당 3,000만원 단독 시나리오를 브라우저에서 확인 시 종합과세 마진세율 적용 (재배포는 사용자 확인 후 별도 진행)"
+    },
+    {
+      "id": 20,
+      "name": "deploy-and-verify",
+      "status": "done",
+      "tasks": [
+        "rate-limit(5개 API 라우트)/npm audit 형식적 재확인",
+        "프로덕션 재배포",
+        "배포된 URL에서 배당 3,000만원 단독 시나리오(300주×10만원) 종합과세 정상 트리거 확인",
+        "/dividend에 고급설정 UI 없음 + 안내문구 노출 확인 (프로덕션)",
+        "세 페이지(/, /trade, /dividend) 챗봇 히스토리 유지 최종 확인 (프로덕션)"
+      ],
+      "done_criteria": "프로덕션 URL에서 위 항목 전부 실제 확인 완료, PROGRESS.md/feature_list.json 갱신 및 커밋"
     }
   ]
 }
