@@ -292,6 +292,18 @@
         "신규 테스트 추가: / 렌더링, /trade 리다이렉트, explain v2(trade), SiteNav 2링크 + 기존 전체 테스트(거치식 포함) 회귀 확인"
       ],
       "done_criteria": "/에서 헤더(A)+매매차익 UI(B)+AI 설명 보기 정상 동작, /trade가 /로 리다이렉트, SiteNav 2개 링크, 기존 전체 테스트 통과, 신규 테스트 통과, 375px 모바일 정상 (재배포는 사용자 확인 후 별도 진행)"
+    },
+    {
+      "id": 22,
+      "name": "explain-v2-field-disambiguation",
+      "status": "done",
+      "tasks": [
+        "explain v2(trade) payload에 generalOnlyTaxKrw/generalForcedTaxKrw 등 세금 필드 의미를 명시하는 fieldDescriptions 딕셔너리 추가",
+        "EXPLAIN_SYSTEM_PROMPT_TRADE에 generalOnlyTaxKrw는 가상 비교에만 쓰고 ISA 실제 세금 설명에는 generalForcedTaxKrw를 쓰라는 규칙 추가",
+        "PROMPTS.md v3로 추가(v1/v2 보존), 동일한 한도초과 시나리오로 실제 API 재호출해 두 세금 개념이 혼동되지 않는지 확인 후 원문 기록",
+        "스모크 테스트: 한도초과 시나리오 실제 응답 로그 + 사람 확인 주석, 한도 이내 일반 케이스 회귀 확인 추가"
+      ],
+      "done_criteria": "한도초과 시나리오에서 AI 설명이 generalOnlyTaxKrw/generalForcedTaxKrw를 혼동하지 않고 구분 서술, 기존 전체 테스트 통과 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

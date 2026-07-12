@@ -24,8 +24,11 @@ const SAMPLE_INPUT: ExplainSimulationInput = {
   verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
 };
 
-// Stage 21: `/`로 통합된 매매차익 계산기 결과 해설(v2) 스모크 입력.
-const SAMPLE_TRADE_INPUT: ExplainSimulationInput = {
+// Stage 21/22: `/`로 통합된 매매차익 계산기 결과 해설(v2→v3) 스모크 입력.
+// 한도초과 케이스 — Stage 21 v2에서 AI가 generalForcedTaxKrw(89,100원, 27주 실제 세금)를
+// generalOnlyTaxKrw(660,000원, 전량 일반계좌 가정 시 가상 세금)와 혼동해 서술한 문제가
+// 발견된 시나리오와 완전히 동일하다(PROMPTS.md 2절 v2/v3 원문 참고).
+const SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT: ExplainSimulationInput = {
   kind: "trade",
   input: {
     stockName: "나스닥 100 ETF",
@@ -51,6 +54,34 @@ const SAMPLE_TRADE_INPUT: ExplainSimulationInput = {
   verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
 };
 
+// Stage 22: 한도 이내(연간 납입한도 2,000만원 미만) 일반 케이스 회귀 확인용 — 이 케이스는
+// generalForcedTaxKrw/generalOnlyTaxKrw 혼동 위험이 애초에 없다(generalQuantity=0).
+const SAMPLE_TRADE_INPUT_WITHIN_LIMIT: ExplainSimulationInput = {
+  kind: "trade",
+  input: {
+    stockName: "나스닥 100 ETF",
+    currentPriceKrw: 115_000,
+    expectedProfitPerShareKrw: 15_000,
+    expectedLossPerShareKrw: 0,
+    quantity: 100,
+    isaType: "general",
+  },
+  result: {
+    totalInvestKrw: 11_500_000,
+    isExceedingContributionLimit: false,
+    isaQuantity: 100,
+    generalQuantity: 0,
+    taxFreeLimitKrw: 2_000_000,
+    netGainForIsaKrw: 1_500_000,
+    isaTaxKrw: 0,
+    generalForcedTaxKrw: 0,
+    generalOnlyTaxKrw: 0,
+    totalTaxKrw: 0,
+    savedAmountKrw: 0,
+  },
+  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+};
+
 describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제 API 호출)", () => {
   it("kind: hold — 조건부 표현이 포함된 한국어 해설을 생성한다", async () => {
     const result = await explainSimulationResult(SAMPLE_INPUT);
@@ -59,8 +90,23 @@ describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제
     expect(result).not.toContain("무조건");
   }, 30_000);
 
-  it("kind: trade — 조건부 표현이 포함된 한국어 해설을 생성한다 (Stage 21 v2)", async () => {
-    const result = await explainSimulationResult(SAMPLE_TRADE_INPUT);
+  // Stage 22: generalOnlyTaxKrw/generalForcedTaxKrw 혼동 여부는 "두 숫자가 서로 다른 문맥에서
+  // 정확히 등장하는지" 같은 의미론적 판단이 필요해 자동 assertion만으로 완전히 검증하기 어렵다.
+  // 그래서 응답 원문을 콘솔에 로그로 남기고, PROMPTS.md 2절 v3에 사람이 문장 단위로 직접 읽고
+  // 두 필드가 혼동되지 않았음을 확인한 기록을 남겼다(이 테스트 실행 시점의 응답이 아니라
+  // PROMPTS.md에 박제된 응답을 기준으로 확인했으므로, 재실행 시 응답이 달라질 수 있다는 점에
+  // 유의 — 매 실행마다 사람이 다시 읽고 확인하는 것을 권장한다).
+  it("kind: trade, 한도초과 케이스 — 응답을 로그로 남기고 사람이 직접 확인한다 (Stage 22 v3)", async () => {
+    const result = await explainSimulationResult(SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT);
+
+    console.log("[Stage 22 스모크 — 한도초과 케이스 실제 응답]\n" + result);
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).not.toContain("무조건");
+  }, 30_000);
+
+  it("kind: trade, 한도 이내 일반 케이스 — 여전히 정상 동작한다 (Stage 22 회귀 확인)", async () => {
+    const result = await explainSimulationResult(SAMPLE_TRADE_INPUT_WITHIN_LIMIT);
 
     expect(result.length).toBeGreaterThan(0);
     expect(result).not.toContain("무조건");

@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 21 (hold-trade-merge — `/`를 매매차익 UI로 통합, `/trade`는 `/`로 리다이렉트, 거치식 계산 엔진은 삭제 없이 보존). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-12 (Stage 21 완료)
+- **완료**: Stage 22 (explain-v2-field-disambiguation — explain trade 프롬프트를 v3로 갱신, generalOnlyTaxKrw/generalForcedTaxKrw 혼동 수정). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-12 (Stage 22 완료)
 
 ## 스테이지 체크리스트
 
@@ -32,6 +32,7 @@
 | 19 | dividend-comprehensive-tax-fix (배당금 단독 종합과세 트리거 수정) | done |
 | 20 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 21 | hold-trade-merge (`/`를 매매차익 UI로 통합, `/trade` 리다이렉트) | done |
+| 22 | explain-v2-field-disambiguation (generalOnlyTaxKrw/generalForcedTaxKrw 혼동 수정) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -284,5 +285,17 @@
 - `npm run test`(78개 통과 — 기존 73개 + 신규 5개, 스모크 10개 스킵. `lib/tax/tax-engine.test.ts`의 거치식 14개 테스트 전부 포함해 그대로 통과 — 회귀 없음 확인), `npm run lint`, `npm run build`(`/trade`가 정적 리다이렉트 라우트로 정상 컴파일) 모두 클린.
 - 로컬 dev 서버 + Playwright로 실제 확인: `/` 접속 시 헤더 타이틀 "절세 계좌 수익 시뮬레이터", 네비게이션 링크 정확히 2개, "AI 설명 보기" 클릭 시 실제 Anthropic API 호출로 조건부 표현이 포함된 해설이 표시됨. `curl`로 `/trade` → `/`(307) 리다이렉트 확인. 375px 모바일에서 헤더(A)와 AI 설명 보기 펼침 상태 모두 가로 스크롤 없이 정상 렌더링됨.
 - feature_list.json Stage 21 done 처리, 커밋 예정. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 22)
+- feature_list.json에 Stage 22(explain-v2-field-disambiguation) 신규 추가(0~21 미변경).
+- **버그 원인**: Stage 21에서 실제 API로 캡처한 explain v2(trade) 응답이 한도초과로 강제전환된 27주의 실제 세금(`generalForcedTaxKrw`, 89,100원)을 전량 일반계좌 가정 시의 가상 세금(`generalOnlyTaxKrw`, 660,000원)으로 잘못 서술했음(PROMPTS.md 2절 v2 원문 참고). 두 필드가 이름만으로는 구분이 어렵고, 원본 JSON을 그대로 넘기는 것만으로는 AI가 의미를 정확히 짚어내지 못한 것이 원인.
+- `lib/ai/explain-simulation-result.ts`: `kind: "trade"`일 때 사용자 메시지를 원본 그대로가 아니라 `buildTradeExplainPayload()`로 감싸 `input`/`result`/`verificationStatus`에 `fieldDescriptions`(각 세금 필드가 정확히 무엇을 의미하는지 설명하는 딕셔너리)를 추가해 전달하도록 변경. `generalOnlyTaxKrw`/`generalForcedTaxKrw` 설명에 "절대 혼동하지 말 것"을 명시.
+- `EXPLAIN_SYSTEM_PROMPT_TRADE`(v3)에 규칙 6 추가: "generalOnlyTaxKrw는 오직 '전량 일반계좌였다면'이라는 가상의 비교 문장에서만 언급하고, ISA 계좌의 실제 세금을 설명할 때는 절대 이 숫자를 쓰지 마세요. 한도초과로 일부가 일반계좌로 전환된 경우 그 부분의 실제 세금은 generalForcedTaxKrw입니다." hold(v1)는 이번 스코프 밖이라 미변경.
+- PROMPTS.md 2절에 v3 섹션 추가(v1/v2 원문 보존): 수정된 프롬프트/payload 원문 + v2와 완전히 동일한 입력값으로 실제 API를 재호출한 응답을 문장 단위로 직접 확인한 결과 기록. `generalForcedTaxKrw`(89,100원)가 "27주 실제 세금"으로, `generalOnlyTaxKrw`(660,000원)가 "전량 일반계좌였다면"이라는 가상 비교에서만 정확히 등장함을 확인 — v2의 혼동이 해소됨.
+  - **부수적으로 발견한 별개 이슈(이번 스코프 밖, 수정하지 않고 기록만 함)**: 두 응답 모두 "비과세 한도 2,000만 원"이라는 표현으로 `taxFreeLimitKrw`(실제 200만원)를 연간 납입한도(2,000만원)와 자릿수를 혼동해 서술함. 다음 스테이지에서 다룰 필요가 있으면 별도로 진행.
+- `lib/ai/explain-simulation-result.test.ts`: trade payload가 `buildTradeExplainPayload()` 결과와 일치하는지, `fieldDescriptions.generalOnlyTaxKrw`/`generalForcedTaxKrw` 설명이 서로 다른지, hold(v1) payload는 원본 그대로 유지되는지 확인하는 테스트 3건 추가/수정.
+- `lib/ai/explain-simulation-result.smoke.test.ts`: v2와 동일한 한도초과 시나리오로 실제 API 재호출 후 응답을 `console.log`로 남기고 "매 실행마다 사람이 직접 읽고 확인" 주석을 남긴 테스트, 한도 이내(연간납입한도 미만, `generalQuantity: 0`) 일반 케이스가 여전히 정상 동작하는지 확인하는 회귀 테스트 추가. 실제 `RUN_AI_SMOKE_TEST=1`로 3개 전부 통과 확인.
+- `npm run test`(80개 통과 — 기존 78개 + 신규 2개, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린.
+- feature_list.json Stage 22 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

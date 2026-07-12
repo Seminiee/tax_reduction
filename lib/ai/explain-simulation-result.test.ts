@@ -10,10 +10,12 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import {
   explainSimulationResult,
+  buildTradeExplainPayload,
   HAIKU_MODEL,
   EXPLAIN_SYSTEM_PROMPT_HOLD,
   EXPLAIN_SYSTEM_PROMPT_TRADE,
   type ExplainSimulationInput,
+  type TradeExplainInput,
 } from "./explain-simulation-result";
 
 const SAMPLE_INPUT: ExplainSimulationInput = {
@@ -83,18 +85,47 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     expect(JSON.parse(params.messages[0].content)).toEqual(SAMPLE_INPUT);
   });
 
-  it("kind가 trade면 EXPLAIN_SYSTEM_PROMPT_TRADE(v2)로, hold면 EXPLAIN_SYSTEM_PROMPT_HOLD(v1)로 호출한다", async () => {
+  it("kind가 trade면 EXPLAIN_SYSTEM_PROMPT_TRADE(v3)로, hold면 EXPLAIN_SYSTEM_PROMPT_HOLD(v1)로 호출한다", async () => {
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
     });
 
     await explainSimulationResult(SAMPLE_INPUT);
     expect(mockCreate.mock.calls[0][0].system).toBe(EXPLAIN_SYSTEM_PROMPT_HOLD);
+    // hold(v1)는 Stage 22 변경 대상이 아니므로 payload가 원본 input 그대로여야 한다.
+    expect(JSON.parse(mockCreate.mock.calls[0][0].messages[0].content)).toEqual(SAMPLE_INPUT);
 
     mockCreate.mockClear();
     await explainSimulationResult(SAMPLE_TRADE_INPUT);
     expect(mockCreate.mock.calls[0][0].system).toBe(EXPLAIN_SYSTEM_PROMPT_TRADE);
-    expect(JSON.parse(mockCreate.mock.calls[0][0].messages[0].content)).toEqual(SAMPLE_TRADE_INPUT);
+  });
+
+  it("Stage 22: trade payload에는 원본 input/result/verificationStatus와 함께 fieldDescriptions가 포함되고, generalOnlyTaxKrw/generalForcedTaxKrw 설명이 명확히 구분된다", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
+    });
+
+    await explainSimulationResult(SAMPLE_TRADE_INPUT);
+
+    const sentPayload = JSON.parse(mockCreate.mock.calls[0][0].messages[0].content);
+    const tradeInput = SAMPLE_TRADE_INPUT as TradeExplainInput;
+
+    expect(sentPayload).toEqual(buildTradeExplainPayload(tradeInput));
+    expect(sentPayload.input).toEqual(tradeInput.input);
+    expect(sentPayload.result).toEqual(tradeInput.result);
+    expect(sentPayload.verificationStatus).toBe(tradeInput.verificationStatus);
+
+    expect(sentPayload.fieldDescriptions.generalOnlyTaxKrw).toContain("가상 세금");
+    expect(sentPayload.fieldDescriptions.generalForcedTaxKrw).toContain("실제로 부과되는 세금");
+    expect(sentPayload.fieldDescriptions.generalOnlyTaxKrw).not.toBe(
+      sentPayload.fieldDescriptions.generalForcedTaxKrw
+    );
+  });
+
+  it("Stage 22: EXPLAIN_SYSTEM_PROMPT_TRADE에 generalOnlyTaxKrw 오용을 금지하는 규칙이 포함된다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("generalOnlyTaxKrw");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("generalForcedTaxKrw");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("fieldDescriptions");
   });
 
   it("텍스트 블록이 없으면 에러를 던진다", async () => {
