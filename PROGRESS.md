@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 23 (explain-v2-field-audit — trade explain 프롬프트를 v4로 갱신, taxFreeLimitKrw/annualContributionLimitKrw 혼동 수정, 필드 전수 점검). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-12 (Stage 23 완료)
+- **완료**: Stage 24 (deploy-and-verify — 프로덕션 재배포 완료, https://taxreduction.vercel.app). 모든 스테이지(0~24) 완료.
+- **마지막 업데이트**: 2026-07-12 (Stage 24 완료)
 
 ## 스테이지 체크리스트
 
@@ -34,6 +34,7 @@
 | 21 | hold-trade-merge (`/`를 매매차익 UI로 통합, `/trade` 리다이렉트) | done |
 | 22 | explain-v2-field-disambiguation (generalOnlyTaxKrw/generalForcedTaxKrw 혼동 수정) | done |
 | 23 | explain-v2-field-audit (taxFreeLimitKrw/annualContributionLimitKrw 혼동 수정) | done |
+| 24 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -310,5 +311,12 @@
 - `lib/ai/explain-simulation-result.test.ts`/`.smoke.test.ts`에 `annualContributionLimitKrw` 반영 + taxFreeLimitKrw/annualContributionLimitKrw 구분 확인 테스트 2건 추가. 실제 `RUN_AI_SMOKE_TEST=1`로 3개 전부 통과 확인(로그로 응답 원문 남김).
 - `npm run test`(82개 통과 — 기존 80개 + 신규 2개, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린. (참고: `npx tsc --noEmit`로 직접 검사하면 `chat-with-tax-assistant.test.ts`에 무관한 사전 존재 타입 오류가 하나 있으나 `git stash`로 확인한 결과 Stage 23 변경 이전부터 있던 것이고 `npm run build`가 항상 사용해온 검증 방식에서는 걸리지 않아 이번 스코프에서 다루지 않음.)
 - feature_list.json Stage 23 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 24)
+- feature_list.json에 Stage 24(deploy-and-verify) 신규 추가(0~23 미변경).
+- rate-limit 재확인: 5개 API 라우트(`/api/chat`, `/api/explain`, `/api/parse`, `/api/parse-dividend`, `/api/parse-trade`) 모두 정상 적용 확인. `npm audit`: 신규 취약점 없음, 기존 postcss(next 내부 의존) moderate 1건만 잔존(Stage 17/19/20과 동일).
+- `npm run build`/`npm run lint`/`npm run test`(82개, 스모크 11개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(curl + Playwright): `/trade` → `/` 307 리다이렉트 확인. `/`에서 헤더 타이틀 "절세 계좌 수익 시뮬레이터", `SiteNav` 정확히 2개 링크("절세 계좌 수익 시뮬레이터", "배당금 계산기") 확인. `/`의 헤더(A)+매매차익 UI(B)+AI 설명 보기 전체 플로우 정상 동작. 기본 시나리오(나스닥 100 ETF 200주, 한도초과)로 AI 설명 보기 실행 시 실제 응답에서 "비과세 한도 200만 원"과 "ISA 연간 납입한도 2,000만 원"이 서로 다른 문장에서 정확히 구분되어 서술됨을 확인(Stage 23 수정이 프로덕션에서도 정확히 재현됨). `/dividend` 정상 렌더링 확인. `/`에서 챗봇 메시지 전송 후 인앱 링크로 `/dividend`→`/`까지 이동해도 대화 히스토리가 그대로 유지됨을 확인. 두 스크립트 전체에서 콘솔 에러/pageerror 0건.
+- feature_list.json Stage 24 done 처리, 커밋. **모든 스테이지(0~24) 완료** — 최종 URL: https://taxreduction.vercel.app
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
