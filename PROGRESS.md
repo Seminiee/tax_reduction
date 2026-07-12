@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 25 (production-copy-polish — AI 입력 예시를 국내상장 ETF로 교체, verification_status/lib/tax/config 참조 등 내부 문구를 사용자向으로 정리). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
-- **마지막 업데이트**: 2026-07-12 (Stage 25 완료)
+- **완료**: Stage 26 (deploy-and-verify — 프로덕션 재배포 완료, https://taxreduction.vercel.app). 모든 스테이지(0~26) 완료.
+- **마지막 업데이트**: 2026-07-12 (Stage 26 완료)
 
 ## 스테이지 체크리스트
 
@@ -36,6 +36,7 @@
 | 23 | explain-v2-field-audit (taxFreeLimitKrw/annualContributionLimitKrw 혼동 수정) | done |
 | 24 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 25 | production-copy-polish (종목 예시 교체 + 내부 문구 정리) | done |
+| 26 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -331,5 +332,12 @@
 - `npm run test`(82개 통과, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린.
 - 로컬 dev 서버 + Playwright로 실제 확인: `/`, `/dividend` 페이지 전체 텍스트에 "skills.md"/"lib/tax"/"config/tax-rules.json"/"미검증" 문자열이 전혀 없음을 프로그래밍적으로 확인. 새 placeholder("TIGER 미국S&P500 2만원에 1,500주...", "TIGER 미국배당다우존스 250주...")와 새 disclaimer 문구가 화면에 정상 렌더링됨을 스크린샷으로 확인. `/`의 헤드라인 절세액이 ₩341,000으로 정상 표시됨(재조정된 기본값 반영).
 - feature_list.json Stage 25 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
+
+### 2026-07-12 (Stage 26)
+- feature_list.json에 Stage 26(deploy-and-verify) 신규 추가(0~25 미변경).
+- rate-limit 재확인: 5개 API 라우트 모두 정상 적용 확인. `npm audit`: 신규 취약점 없음, 기존 postcss(next 내부 의존) moderate 1건만 잔존.
+- `npm run build`/`npm run lint`/`npm run test`(82개, 스모크 11개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
+- 프로덕션 검증(Playwright): `/`의 AI 입력 placeholder가 "TIGER 미국S&P500 2만원에 1,500주..."로, `/dividend`가 "TIGER 미국배당다우존스 250주..."로 정상 노출됨을 확인. 두 페이지 전체 텍스트에서 "skills.md"/"lib/tax"/"config/tax-rules.json"/"미검증" 문자열이 전혀 없음을 프로그래밍적으로 확인. `/`의 "AI 설명 보기" 실제 응답에서 "비과세 한도인 200만 원"과 "연간 납입한도 2,000만 원", "실제 총 세금 99,000원"과 "전량을 일반계좌로 매수했다면 440,000원"이 각각 문장 단위로 정확히 구분되고, 실제 미확정 항목("배당소득 분리과세 개편")을 구체적으로 짚어 안내함을 확인(Stage 22/23/25 수정이 프로덕션에서 함께 재현됨). 챗봇에 "아직 확정되지 않은 내용이 있나요?" 질문 시 ISA 비과세 한도 확대 추진안·국내투자형 ISA 신설·외국납부세액 선환급·배당소득 분리과세 개편을 구체적으로 안내함을 확인. 콘솔 에러 0건.
+- feature_list.json Stage 26 done 처리, 커밋. **모든 스테이지(0~26) 완료** — 최종 URL: https://taxreduction.vercel.app
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->
