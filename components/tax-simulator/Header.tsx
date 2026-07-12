@@ -10,7 +10,7 @@ export function Header() {
         투자금액을 슬라이드하면 세후수익과 절세 구간을 바로 보여드립니다.
       </div>
       <div className={styles.updated}>
-        updated at : {taxRules.as_of} (세율 기준 · 확인 필요, config/tax-rules.json 참고)
+        updated at : {taxRules.as_of} (세율 기준일 · 세법 개정에 따라 변경될 수 있어요)
       </div>
     </>
   );

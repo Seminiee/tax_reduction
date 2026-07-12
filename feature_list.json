@@ -330,6 +330,20 @@
         "/trade -> / 리다이렉트, SiteNav 2링크, / 전체 플로우(A+B+AI설명보기), 한도초과 시나리오 비과세한도/납입한도 구분, /dividend 동작 + 챗봇 히스토리 유지, 콘솔 에러 없음을 프로덕션에서 확인"
       ],
       "done_criteria": "프로덕션 URL에서 위 항목 전부 실제 확인 완료, PROGRESS.md/feature_list.json 갱신 및 커밋"
+    },
+    {
+      "id": 25,
+      "name": "production-copy-polish",
+      "status": "done",
+      "tasks": [
+        "AI 입력 placeholder + 기본 폼 예시(종목명)를 개별 해외주식/모호한 표현에서 국내상장 ETF로 교체(/, /dividend)",
+        "config/tax-rules.json의 top-level verification_status를 skills.md 등 내부 문서 참조 없는 사용자向 문구로 재작성",
+        "explain v1(hold)/v4(trade) 프롬프트의 \"미검증\" 키워드 매칭 규칙을 새 verification_status 문구에 맞는 기준으로 교체",
+        "/, /dividend, 챗봇 UI 전체에서 그 외 내부용 텍스트(lib/tax, config/tax-rules.json 등 파일 경로 참조) 점검 및 정리",
+        "PROMPTS.md에 변경사항 반영 버전 추가(기존 버전 보존)",
+        "실제 API로 확정/미확정 항목이 여전히 올바르게 언급되는지 확인"
+      ],
+      "done_criteria": "/, /dividend의 AI 입력 예시가 전부 국내상장 ETF 기준, 화면 어디에도 내부 문서/파일 참조 없음, 새 disclaimer 문구가 자연스러운 사용자向 한국어, 기존 전체 테스트 통과 (재배포는 사용자 확인 후 별도 진행)"
     }
   ]
 }

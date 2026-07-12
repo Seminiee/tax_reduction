@@ -13,11 +13,15 @@ import { AiExplanationPanel } from "./AiExplanationPanel";
 import { Disclaimer } from "./Disclaimer";
 
 export function TradeCalculator() {
-  const [stockName, setStockName] = useState("나스닥 100 ETF");
-  const [currentPriceKrw, setCurrentPriceKrw] = useState(115_000);
-  const [expectedProfitPerShareKrw, setExpectedProfitPerShareKrw] = useState(15_000);
+  // Stage 25: 개별 해외주식/모호한 표현 대신 실제 존재하는 국내상장 ETF로 예시를 교체.
+  // 수량×주가가 연간 납입한도(2,000만원)를 넘도록 유지해 기본 화면에서 한도초과 배너를 보여준다.
+  // (2만원×1,500주=3,000만원, 주당 3,000원 이익 — 세금/절세액이 정확히 0원인 경계값을 피해
+  // 실제 절세 효과를 보여주도록 선택함)
+  const [stockName, setStockName] = useState("TIGER 미국S&P500");
+  const [currentPriceKrw, setCurrentPriceKrw] = useState(20_000);
+  const [expectedProfitPerShareKrw, setExpectedProfitPerShareKrw] = useState(3_000);
   const [expectedLossPerShareKrw, setExpectedLossPerShareKrw] = useState(0);
-  const [quantity, setQuantity] = useState(200);
+  const [quantity, setQuantity] = useState(1_500);
   const [isaType, setIsaType] = useState<TwoWayIsaType>("general");
 
   const result = useMemo(

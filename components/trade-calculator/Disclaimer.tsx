@@ -7,7 +7,7 @@ export function Disclaimer() {
       의무가입기간(3년)을 충족했다고 가정하며, 중도해지 시나리오와 금융소득종합과세 계산은 포함하지
       않습니다.
       <br />
-      실제 계산 로직은 lib/tax의 단위 테스트를 통과한 함수를 따릅니다.
+      실제 계산 로직은 자동화된 테스트로 검증된 계산 함수를 따릅니다.
       <br />
       {taxRules.verification_status}
     </div>

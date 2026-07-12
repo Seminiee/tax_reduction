@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 24 (deploy-and-verify — 프로덕션 재배포 완료, https://taxreduction.vercel.app). 모든 스테이지(0~24) 완료.
-- **마지막 업데이트**: 2026-07-12 (Stage 24 완료)
+- **완료**: Stage 25 (production-copy-polish — AI 입력 예시를 국내상장 ETF로 교체, verification_status/lib/tax/config 참조 등 내부 문구를 사용자向으로 정리). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-12 (Stage 25 완료)
 
 ## 스테이지 체크리스트
 
@@ -35,6 +35,7 @@
 | 22 | explain-v2-field-disambiguation (generalOnlyTaxKrw/generalForcedTaxKrw 혼동 수정) | done |
 | 23 | explain-v2-field-audit (taxFreeLimitKrw/annualContributionLimitKrw 혼동 수정) | done |
 | 24 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
+| 25 | production-copy-polish (종목 예시 교체 + 내부 문구 정리) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -318,5 +319,17 @@
 - `npm run build`/`npm run lint`/`npm run test`(82개, 스모크 11개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
 - 프로덕션 검증(curl + Playwright): `/trade` → `/` 307 리다이렉트 확인. `/`에서 헤더 타이틀 "절세 계좌 수익 시뮬레이터", `SiteNav` 정확히 2개 링크("절세 계좌 수익 시뮬레이터", "배당금 계산기") 확인. `/`의 헤더(A)+매매차익 UI(B)+AI 설명 보기 전체 플로우 정상 동작. 기본 시나리오(나스닥 100 ETF 200주, 한도초과)로 AI 설명 보기 실행 시 실제 응답에서 "비과세 한도 200만 원"과 "ISA 연간 납입한도 2,000만 원"이 서로 다른 문장에서 정확히 구분되어 서술됨을 확인(Stage 23 수정이 프로덕션에서도 정확히 재현됨). `/dividend` 정상 렌더링 확인. `/`에서 챗봇 메시지 전송 후 인앱 링크로 `/dividend`→`/`까지 이동해도 대화 히스토리가 그대로 유지됨을 확인. 두 스크립트 전체에서 콘솔 에러/pageerror 0건.
 - feature_list.json Stage 24 done 처리, 커밋. **모든 스테이지(0~24) 완료** — 최종 URL: https://taxreduction.vercel.app
+
+### 2026-07-12 (Stage 25)
+- feature_list.json에 Stage 25(production-copy-polish) 신규 추가(0~24 미변경).
+- **A. 종목 예시 교체**: `/`(매매차익) AI 입력 placeholder + 기본 폼 예시를 "나스닥 100 ETF"(모호한 표현)에서 "TIGER 미국S&P500"으로, `/dividend` 예시를 "코카콜라"/"리얼티인컴"(개별 해외주식/리츠)에서 "TIGER 미국배당다우존스"(실제 존재하는 국내상장 배당형 ETF)로 교체. `/api/parse-trade`·`/api/parse-dividend` 시스템 프롬프트 자체에는 종목명 예시가 박혀있지 않음을 확인해(필드 설명만 있고 few-shot 예시 없음) 프롬프트 텍스트는 변경하지 않고 화면 placeholder만 갱신, PROMPTS.md에 이 사실과 갱신 내용을 기록. `/` 기본값은 처음 25,000원/1,000주/2,500원 조합으로 시도했으나 ISA 순이익이 정확히 비과세 한도와, 일반계좌 순이익이 정확히 기본공제와 우연히 일치해 세금·절세액이 전부 0원이 되는 경계값이었음을 발견 — 20,000원/1,500주/3,000원으로 재조정해 헤드라인 절세액이 실제로 표시되도록 수정(₩341,000).
+- **B. 내부용 문구 정리**: `config/tax-rules.json`의 top-level `verification_status`가 "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요 (skills.md 2절 참고)"로 내부 문서를 직접 참조하며 3개 Disclaimer 컴포넌트(trade/dividend/tax-simulator)에 그대로 렌더링되고 있던 것을 발견, 확정된 사실(ISA 비과세 한도 200/400만원, 가입자격)과 미확정 사항(외국납부세액 선환급 시행방식, 배당소득 분리과세 개편, 국내투자형 ISA 신설)을 구분해 안내하는 사용자向 문구로 재작성. `national_income_tax_brackets.verification_status`(코드에서 미사용, 화면 비노출)도 동일 원칙으로 정리. 추가 점검(item 5)에서 Disclaimer 3개의 "lib/tax의 단위 테스트를 통과한 함수를 따릅니다"(파일 경로 참조)와 Header 2개(trade/tax-simulator)의 "config/tax-rules.json 참고"(파일명 참조)도 동일 범주의 문제로 발견해 함께 정리. 그 외 `/`, `/dividend`, 챗봇 UI 전체를 grep으로 재점검했으나 JSX로 렌더링되는 추가 내부 참조는 발견되지 않음(코드 주석의 "Stage N"/"lib/tax" 언급은 빌드 시 제거되어 화면에 노출되지 않으므로 대상 아님).
+- `lib/ai/explain-simulation-result.ts`: 새 verification_status가 더 이상 "미검증"이라는 단어를 포함하지 않아, `EXPLAIN_SYSTEM_PROMPT_HOLD`(v1→v2)와 `EXPLAIN_SYSTEM_PROMPT_TRADE`(v4→v5)의 규칙 4("verificationStatus에 '미검증'이 포함되면 언급") 매칭 키워드를 새 문구에 실제로 등장하는 "확정되지 않았"으로 교체.
+- 실제 API 호출로 hold/trade 두 경로 모두 확인: 확정된 ISA 비과세 한도(200만원)는 더 이상 "미검증"류로 언급되지 않고, 실제 미확정 항목(예: "외국납부세액 선환급 시행 방식", "배당소득 분리과세 개편")을 마지막 문장에서 구체적으로 짚어 안내함을 확인 — 오히려 이전보다 더 정확한 해설이 됨. (부수 발견: trade 응답에서 "초과분 1,000만원에만 9.9%"라는 자릿수 오기재를 발견했으나 세금 계산 결과 자체는 정확했고, 이번 스테이지 스코프(taxFreeLimitKrw/annualContributionLimitKrw, generalOnlyTaxKrw/generalForcedTaxKrw 혼동)와는 무관한 별개의 산술 서술 오류라 수정하지 않고 PROMPTS.md에 발견 사실만 기록)
+- PROMPTS.md 갱신: 2절에 v2(hold)/v5(trade) 섹션 추가(v1~v4 보존, 새 verification_status 원문 + 실제 API 응답 2건 기록), 1-B/1-C에 placeholder 갱신 노트 추가.
+- 테스트: `lib/ai/explain-simulation-result.test.ts`/`.smoke.test.ts`의 `verificationStatus` 샘플을 "미검증 초안..."에서 "...확정되지 않았으니..." 문구로 교체(모두 replace_all로 일괄 반영). 기존 assert 로직(prompt 선택, payload 구조)은 변경 없이 그대로 통과.
+- `npm run test`(82개 통과, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린.
+- 로컬 dev 서버 + Playwright로 실제 확인: `/`, `/dividend` 페이지 전체 텍스트에 "skills.md"/"lib/tax"/"config/tax-rules.json"/"미검증" 문자열이 전혀 없음을 프로그래밍적으로 확인. 새 placeholder("TIGER 미국S&P500 2만원에 1,500주...", "TIGER 미국배당다우존스 250주...")와 새 disclaimer 문구가 화면에 정상 렌더링됨을 스크린샷으로 확인. `/`의 헤드라인 절세액이 ₩341,000으로 정상 표시됨(재조정된 기본값 반영).
+- feature_list.json Stage 25 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

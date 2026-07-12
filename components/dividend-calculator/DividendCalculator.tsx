@@ -10,9 +10,10 @@ import { NaturalLanguageInputCard } from "./NaturalLanguageInputCard";
 import { Disclaimer } from "./Disclaimer";
 
 export function DividendCalculator() {
-  const [stockName, setStockName] = useState("코카콜라");
-  const [dividendPerShareKrw, setDividendPerShareKrw] = useState(2_000);
-  const [currentPriceKrw, setCurrentPriceKrw] = useState(65_000);
+  // Stage 25: 개별 해외주식(코카콜라 등) 대신 실제 존재하는 국내상장 배당형 ETF로 예시를 교체.
+  const [stockName, setStockName] = useState("TIGER 미국배당다우존스");
+  const [dividendPerShareKrw, setDividendPerShareKrw] = useState(500);
+  const [currentPriceKrw, setCurrentPriceKrw] = useState(12_000);
   const [inputMode, setInputMode] = useState<QuantityInputMode>("quantity");
   const [quantity, setQuantity] = useState(100);
   const [totalPurchaseAmountKrw, setTotalPurchaseAmountKrw] = useState(10_000_000);

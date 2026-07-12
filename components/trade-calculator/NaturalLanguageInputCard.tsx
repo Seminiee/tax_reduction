@@ -32,7 +32,7 @@ export function NaturalLanguageInputCard({ onApply }: NaturalLanguageInputCardPr
       <textarea
         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors resize-none"
         rows={2}
-        placeholder="예: 나스닥 100 ETF 11만5천원에 200주, 주당 만5천원 이익 예상"
+        placeholder="예: TIGER 미국S&P500 2만원에 1,500주, 주당 3,000원 이익 예상"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />

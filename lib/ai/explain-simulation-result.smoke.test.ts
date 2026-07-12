@@ -21,7 +21,8 @@ const SAMPLE_INPUT: ExplainSimulationInput = {
     taxableExcess: 2_693_281,
     taxFreeLimitKrw: 2_000_000,
   },
-  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+  verificationStatus:
+    "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
 };
 
 // Stage 21/22: `/`로 통합된 매매차익 계산기 결과 해설(v2→v3) 스모크 입력.
@@ -52,7 +53,8 @@ const SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT: ExplainSimulationInput = {
     totalTaxKrw: 148_005,
     savedAmountKrw: 511_995,
   },
-  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+  verificationStatus:
+    "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
 };
 
 // Stage 22: 한도 이내(연간 납입한도 2,000만원 미만) 일반 케이스 회귀 확인용 — 이 케이스는
@@ -81,7 +83,8 @@ const SAMPLE_TRADE_INPUT_WITHIN_LIMIT: ExplainSimulationInput = {
     totalTaxKrw: 0,
     savedAmountKrw: 0,
   },
-  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+  verificationStatus:
+    "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
 };
 
 describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제 API 호출)", () => {

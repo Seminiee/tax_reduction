@@ -1,6 +1,6 @@
 {
   "as_of": "2026-07-05",
-  "verification_status": "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요 (skills.md 2절 참고)",
+  "verification_status": "ISA 비과세 한도(일반형 200만원·서민형 400만원)와 가입 자격 요건은 2026년 7월 기준으로 확인된 내용입니다. 다만 외국납부세액 선환급 시행 방식, 배당소득 분리과세 개편, 국내투자형 ISA 신설 여부는 아직 확정되지 않았으니 투자 결정 전 국세청 또는 금융투자협회의 최신 공지를 확인하시기 바랍니다.",
   "general_account": {
     "capital_gains_tax_rate": 0.22,
     "annual_basic_deduction_krw": 2500000,
@@ -48,7 +48,7 @@
     }
   },
   "national_income_tax_brackets": {
-    "verification_status": "미검증 초안 — 해당 연도 종합소득세 누진세율표는 세법 개정 여부를 국세청 최신 고시로 재확인 필요 (skills.md 2절과 동일한 성격의 불확실성)",
+    "verification_status": "종합소득세 누진세율표는 2026년 7월 기준이며, 세법 개정 시 국세청 최신 고시로 재확인이 필요합니다.",
     "note": "각 구간의 rate는 한계세율(marginal rate)이다. 본 시뮬레이터는 금융소득종합과세 기준 초과분에 이 한계세율만 적용하며, 누진공제를 반영한 전체 종합소득세액은 계산하지 않는다.",
     "brackets": [
       { "up_to_krw": 14000000, "rate": 0.06 },

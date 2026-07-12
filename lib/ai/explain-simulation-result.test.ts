@@ -34,7 +34,8 @@ const SAMPLE_INPUT: ExplainSimulationInput = {
     taxableExcess: 2_693_281,
     taxFreeLimitKrw: 2_000_000,
   },
-  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+  verificationStatus:
+    "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
 };
 
 // Stage 21: `/`로 통합된 매매차익 계산기 결과 해설(v2) 입력 샘플.
@@ -62,7 +63,8 @@ const SAMPLE_TRADE_INPUT: ExplainSimulationInput = {
     totalTaxKrw: 148_005,
     savedAmountKrw: 511_995,
   },
-  verificationStatus: "미검증 초안 — 국세청/금융투자협회 최신 공지로 재확인 필요",
+  verificationStatus:
+    "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
 };
 
 describe("explainSimulationResult (Anthropic API 목 처리)", () => {
