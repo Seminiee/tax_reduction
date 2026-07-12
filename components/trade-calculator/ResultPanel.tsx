@@ -61,8 +61,8 @@ export function ResultPanel({ stockName, quantity, result, theoreticalMaxTaxKrw 
           <span>
             <strong className="text-amber-800">연간 납입 한도(2,000만 원) 초과!</strong>
             <br />
-            한도를 초과한 매수 수량은 일반 해외주식 계좌 규칙(22% 양도소득세 + 기본공제)으로 강제
-            전환되어 과세됩니다.
+            한도를 초과한 매수 수량은 일반 계좌 규칙(15.4% 배당소득세, 금융소득종합과세 시 한계세율)으로
+            강제 전환되어 과세됩니다.
           </span>
         </div>
       )}
@@ -98,7 +98,7 @@ export function ResultPanel({ stockName, quantity, result, theoreticalMaxTaxKrw 
           <div className="mb-5">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-slate-500 font-semibold text-xs">
-                일반 계좌 세금 (전량 매도 가정, 22%+기본공제)
+                일반 계좌 세금 (전량 매도 가정, 15.4% 배당소득세+한계세율)
               </span>
               <span className="font-mono text-rose-500 font-bold text-sm">
                 ₩{Math.round(generalOnlyTaxKrw).toLocaleString("ko-KR")}

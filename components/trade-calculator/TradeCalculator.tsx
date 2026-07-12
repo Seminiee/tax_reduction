@@ -94,6 +94,9 @@ export function TradeCalculator() {
           taxFreeLimitKrw: result.taxFreeLimitKrw,
           netGainForIsaKrw: result.netGainForIsaKrw,
           isaTaxKrw: result.isaTaxKrw,
+          // Stage 27: 강제전환분에 15.4%/한계세율(금융소득종합과세) 구조가 적용되면서 추가됨.
+          isComprehensiveTaxationTriggered: result.isComprehensiveTaxationTriggered,
+          marginalTaxRateApplied: result.marginalTaxRateApplied,
           generalForcedTaxKrw: result.generalForcedTaxKrw,
           generalOnlyTaxKrw: result.generalOnlyTaxKrw,
           totalTaxKrw: result.totalTaxKrw,
@@ -139,6 +142,8 @@ export function TradeCalculator() {
         generalQuantity: result.generalQuantity,
         taxFreeLimitKrw: result.taxFreeLimitKrw,
         isaTaxKrw: result.isaTaxKrw,
+        isComprehensiveTaxationTriggered: result.isComprehensiveTaxationTriggered,
+        marginalTaxRateApplied: result.marginalTaxRateApplied,
         generalForcedTaxKrw: result.generalForcedTaxKrw,
         generalOnlyTaxKrw: result.generalOnlyTaxKrw,
         totalTaxKrw: result.totalTaxKrw,

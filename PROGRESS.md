@@ -3,8 +3,8 @@
 새 세션 시작 시 이 파일의 "현재 상태"부터 확인한다.
 
 ## 현재 상태
-- **완료**: Stage 26 (deploy-and-verify — 프로덕션 재배포 완료, https://taxreduction.vercel.app). 모든 스테이지(0~26) 완료.
-- **마지막 업데이트**: 2026-07-12 (Stage 26 완료)
+- **완료**: Stage 27 (trade-tax-model-correction — trade-calculator.ts 일반계좌 세율을 22%+250만원 공제에서 15.4%/금융소득종합과세 한계세율로 정정, "그래프가 안 움직인다" 증상 근본 원인 해결. general-account.ts는 무변경). 로컬 검증 완료, **프로덕션 재배포는 사용자 확인 후 별도 진행 예정**(아직 미배포).
+- **마지막 업데이트**: 2026-07-12 (Stage 27 완료)
 
 ## 스테이지 체크리스트
 
@@ -37,6 +37,7 @@
 | 24 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
 | 25 | production-copy-polish (종목 예시 교체 + 내부 문구 정리) | done |
 | 26 | deploy-and-verify (rate-limit/audit 재확인, 최종 배포) | done |
+| 27 | trade-tax-model-correction (매매차익 세율을 15.4%/한계세율로 정정) | done |
 
 ## 세션 로그
 ### 2026-07-05
@@ -339,5 +340,19 @@
 - `npm run build`/`npm run lint`/`npm run test`(82개, 스모크 11개 스킵) 모두 통과 후 `npx vercel --prod`로 프로덕션 재배포, https://taxreduction.vercel.app에 정상 alias 완료.
 - 프로덕션 검증(Playwright): `/`의 AI 입력 placeholder가 "TIGER 미국S&P500 2만원에 1,500주..."로, `/dividend`가 "TIGER 미국배당다우존스 250주..."로 정상 노출됨을 확인. 두 페이지 전체 텍스트에서 "skills.md"/"lib/tax"/"config/tax-rules.json"/"미검증" 문자열이 전혀 없음을 프로그래밍적으로 확인. `/`의 "AI 설명 보기" 실제 응답에서 "비과세 한도인 200만 원"과 "연간 납입한도 2,000만 원", "실제 총 세금 99,000원"과 "전량을 일반계좌로 매수했다면 440,000원"이 각각 문장 단위로 정확히 구분되고, 실제 미확정 항목("배당소득 분리과세 개편")을 구체적으로 짚어 안내함을 확인(Stage 22/23/25 수정이 프로덕션에서 함께 재현됨). 챗봇에 "아직 확정되지 않은 내용이 있나요?" 질문 시 ISA 비과세 한도 확대 추진안·국내투자형 ISA 신설·외국납부세액 선환급·배당소득 분리과세 개편을 구체적으로 안내함을 확인. 콘솔 에러 0건.
 - feature_list.json Stage 26 done 처리, 커밋. **모든 스테이지(0~26) 완료** — 최종 URL: https://taxreduction.vercel.app
+
+### 2026-07-12 (Stage 27)
+- feature_list.json에 Stage 27(trade-tax-model-correction) 신규 추가(0~26 미변경, `lib/tax/general-account.ts`는 명시적으로 변경 대상에서 제외).
+- **버그 배경**: 이 서비스가 실제로 다루는 대상은 국내상장 해외ETF(TIGER/KODEX 등)인데, `lib/tax/trade-calculator.ts`(`/`)는 해외 거래소 직접상장 종목 시나리오에만 유효한 22% 양도소득세+250만원 기본공제(`applyGeneralCapitalGainsTax`)를 잘못 적용하고 있었다. 실제로는 매매차익도 분배금(`/dividend`)과 동일하게 배당소득세 15.4%+금융소득종합과세 한계세율(`applyGeneralDividendTax`)이 맞다.
+- `lib/tax/trade-calculator.ts`: 일반계좌 세금 계산(강제전환분·전량가정 두 곳 모두)을 `applyGeneralDividendTax` 기반으로 교체. dividend-calculator.ts와 동일하게 otherFinancialIncomeKrw 없이 이 거래의 순이익만으로 2,000만원 임계값을 판단(Stage 19 원칙 재사용). ISA 쪽(`applyIsaSeparateTax`)과 `general-account.ts`(거치식, 해외 직접상장 시나리오는 여전히 유효)는 전혀 건드리지 않음. `TradeCalculatorResult`에 `isComprehensiveTaxationTriggered`/`marginalTaxRateApplied` 필드 신규 추가.
+- `trade-calculator.test.ts`: 기존 5개 테스트 전부 새 세율로 기댓값 재계산(예: 순이익 1,000만원 케이스의 `generalOnlyTaxKrw`가 22% 기준 1,650,000원 → 15.4% 기준 1,540,000원). 신규 테스트 3건 추가: (1) 강제전환분이 2,000만원 임계값을 넘으면 한계세율(15%)이 적용되는 케이스, (2) dividend-calculator와 trade-calculator가 동일 순이익(2,500만원)에 대해 정확히 같은 세금(3,830,000원)을 반환하는 invariant 테스트, (3) 한계세율이 최고 구간(45%)까지 올라가도 일반계좌(강제전환분 포함) 세금이 ISA 조합보다 낮아지지 않는지 검증(`generalOnlyTaxKrw >= totalTaxKrw` 직접 비교 — `savedAmountKrw`는 `Math.max(0, ...)`로 클램프되어 있어 이 값만으로는 역전 여부를 의미 있게 검증할 수 없음을 확인하고 클램프 이전 값을 직접 비교하도록 설계).
+- UI: `ResultPanel.tsx`의 "일반 계좌 세금 (전량 매도 가정, 22%+기본공제)" 라벨과 한도초과 경고 배너의 "22% 양도소득세 + 기본공제" 문구를 "15.4% 배당소득세+한계세율" 기준으로 수정. `TradeCalculator.tsx`의 explain/챗봇 payload에 신규 필드 반영.
+- **"그래프가 안 움직인다" 증상 재점검**: 브라우저에서 매수 수량을 100→500→1,000→2,000주로 바꿔가며 확인한 결과, 일반 계좌 세금이 ₩46,200 → ₩231,000 → ₩462,000 → ₩924,000으로 선형적으로 정확히 비례해 변함을 확인 — **세율 교체만으로 완전히 해결됨**. 근본 원인: 기존 22%+250만원 공제 모델은 국내상장 ETF의 통상적인 데모 규모(주가 1~3만원대, 수량 수백~수천주)에서 순이익이 250만원 기본공제를 넘지 못하는 범위가 넓어, 그 범위 안에서는 `generalOnlyTaxKrw`가 항상 정확히 0원으로 고정되어 수량을 바꿔도 화면이 전혀 움직이지 않는 것처럼 보였다. 새 15.4% 모델은 기본공제가 없어(0원보다 큰 순이익이면 항상 0보다 큰 세금) 이 문제가 구조적으로 재발하지 않는다.
+- 챗봇(`chat-with-tax-assistant.ts`, v4): [답변 근거] 3번에 "이 서비스의 절세 계좌 수익 시뮬레이터와 배당금 계산기는 모두 국내상장 해외ETF... 15.4% 배당소득세... 22% 양도소득세는... 이 서비스의 계산 대상이 아닙니다" 문장 추가. trade 동적 컨텍스트 템플릿("강제전환분 양도소득세" → "강제전환분 배당소득세" + 금융소득종합과세 대상 여부/세율 필드 추가, PROMPTS.md에 템플릿 v2로 기록).
+- explain(`explain-simulation-result.ts`, v6): `TradeExplainInput.result`에 신규 필드 2개 추가, `fieldDescriptions`에 15.4%/한계세율 기준 설명 반영, 규칙 8 추가("22% 양도소득세는... 언급하지 마세요").
+- skills.md 1절 전면 재작성: A(해외 직접상장, 22%, UI 미사용이지만 general-account.ts에 보존)/B(ISA, 무변경)/C(국내상장 ETF 매매차익, `/`, 신규)/D(국내상장 ETF 분배금, `/dividend`, 신규)로 구분하고 "C와 D는 사실상 같은 과세 구조"임을 명시. 단순화 가정 문구(과표기준가 대신 매매차익 전액을 과세표준으로 간주) 추가. `rate-engine.ts`/`isa-account.ts`가 참조하던 기존 "1절 A"/"1절 B" 표기는 그대로 유효하도록 레터링을 보존.
+- 실제 API로 확인: explain(kind: trade)이 "일반계좌 강제전환분 500주의 순이익 1,500만 원에는 배당소득세 15.4%가 적용되어 231,000원이 부과됩니다"로 정확히 서술(22% 언급 완전히 사라짐). 챗봇도 "이 서비스가 다루는 국내상장 해외ETF... 매매차익도... 15.4% 배당소득세가 적용됩니다. 22% 양도소득세는 해외 거래소에 직접 상장된 종목을 직접 매수할 때만 적용되는데... 이 서비스는 국내상장 ETF 중심"이라고 정확히 구분해 답변. (부수 발견 2건, 이번 스코프 밖이라 기록만 함: explain 응답에서 "초과분 1,000만원"이 실제로는 100만원인 자릿수 오기재가 v5/v6 양쪽에서 재현됨 — 세금 계산 자체는 정확함.)
+- `npm run test`(87개 통과 — 기존 82개 + 신규 5개, 스모크 11개 스킵), `npm run lint`, `npm run build` 모두 클린. `lib/tax/tax-engine.test.ts`(general-account.ts 테스트)는 `git diff`로 무변경 확인.
+- feature_list.json Stage 27 done 처리, 커밋. **사용자 요청대로 프로덕션 재배포는 진행하지 않음** — 재배포는 사용자 확인 후 별도 진행.
 
 <!-- 새 세션 로그는 위 형식으로 아래에 계속 추가 -->

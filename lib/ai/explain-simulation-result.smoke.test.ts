@@ -25,33 +25,36 @@ const SAMPLE_INPUT: ExplainSimulationInput = {
     "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
 };
 
-// Stage 21/22: `/`로 통합된 매매차익 계산기 결과 해설(v2→v3) 스모크 입력.
-// 한도초과 케이스 — Stage 21 v2에서 AI가 generalForcedTaxKrw(89,100원, 27주 실제 세금)를
-// generalOnlyTaxKrw(660,000원, 전량 일반계좌 가정 시 가상 세금)와 혼동해 서술한 문제가
-// 발견된 시나리오와 완전히 동일하다(PROMPTS.md 2절 v2/v3 원문 참고).
+// Stage 21/22/27: `/`로 통합된 매매차익 계산기 결과 해설(v2→v6) 스모크 입력.
+// 한도초과 케이스 — Stage 21 v2에서 AI가 generalForcedTaxKrw/generalOnlyTaxKrw를 혼동해
+// 서술한 문제가 발견된 시나리오와 같은 구조(한도초과로 ISA/일반계좌 분할)를 유지하되, Stage 27에서
+// 일반계좌 세율이 15.4%/한계세율로 바뀌면서 `/`의 기본 예시(TIGER 미국S&P500, Stage 25)와 같은
+// 시나리오로 값을 다시 계산했다(PROMPTS.md 2절 v6 원문 참고).
 const SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT: ExplainSimulationInput = {
   kind: "trade",
   input: {
-    stockName: "나스닥 100 ETF",
-    currentPriceKrw: 115_000,
-    expectedProfitPerShareKrw: 15_000,
+    stockName: "TIGER 미국S&P500",
+    currentPriceKrw: 20_000,
+    expectedProfitPerShareKrw: 3_000,
     expectedLossPerShareKrw: 0,
-    quantity: 200,
+    quantity: 1_500,
     isaType: "general",
   },
   result: {
-    totalInvestKrw: 23_000_000,
+    totalInvestKrw: 30_000_000,
     annualContributionLimitKrw: 20_000_000,
     isExceedingContributionLimit: true,
-    isaQuantity: 173,
-    generalQuantity: 27,
+    isaQuantity: 1_000,
+    generalQuantity: 500,
     taxFreeLimitKrw: 2_000_000,
-    netGainForIsaKrw: 2_595_000,
-    isaTaxKrw: 58_905,
-    generalForcedTaxKrw: 89_100,
-    generalOnlyTaxKrw: 660_000,
-    totalTaxKrw: 148_005,
-    savedAmountKrw: 511_995,
+    netGainForIsaKrw: 3_000_000,
+    isaTaxKrw: 99_000,
+    isComprehensiveTaxationTriggered: false,
+    marginalTaxRateApplied: 0.154,
+    generalForcedTaxKrw: 231_000,
+    generalOnlyTaxKrw: 693_000,
+    totalTaxKrw: 330_000,
+    savedAmountKrw: 363_000,
   },
   verificationStatus:
     "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
@@ -62,7 +65,7 @@ const SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT: ExplainSimulationInput = {
 const SAMPLE_TRADE_INPUT_WITHIN_LIMIT: ExplainSimulationInput = {
   kind: "trade",
   input: {
-    stockName: "나스닥 100 ETF",
+    stockName: "TIGER 미국S&P500",
     currentPriceKrw: 115_000,
     expectedProfitPerShareKrw: 15_000,
     expectedLossPerShareKrw: 0,
@@ -78,10 +81,12 @@ const SAMPLE_TRADE_INPUT_WITHIN_LIMIT: ExplainSimulationInput = {
     taxFreeLimitKrw: 2_000_000,
     netGainForIsaKrw: 1_500_000,
     isaTaxKrw: 0,
+    isComprehensiveTaxationTriggered: false,
+    marginalTaxRateApplied: 0.154,
     generalForcedTaxKrw: 0,
-    generalOnlyTaxKrw: 0,
+    generalOnlyTaxKrw: 231_000,
     totalTaxKrw: 0,
-    savedAmountKrw: 0,
+    savedAmountKrw: 231_000,
   },
   verificationStatus:
     "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
@@ -103,10 +108,10 @@ describe.skipIf(!shouldRun)("explainSimulationResult 스모크 테스트 (실제
   // 정확히 참조하고 annualContributionLimitKrw(2,000만원)와 섞이지 않았는지를 확인한 기록을
   // 남겼다(이 테스트 실행 시점의 응답이 아니라 PROMPTS.md에 박제된 응답을 기준으로 확인했으므로,
   // 재실행 시 응답이 달라질 수 있다는 점에 유의 — 매 실행마다 사람이 다시 읽고 확인하는 것을 권장한다).
-  it("kind: trade, 한도초과 케이스 — 응답을 로그로 남기고 사람이 직접 확인한다 (Stage 22/23)", async () => {
+  it("kind: trade, 한도초과 케이스 — 응답을 로그로 남기고 사람이 직접 확인한다 (Stage 22/23/27)", async () => {
     const result = await explainSimulationResult(SAMPLE_TRADE_INPUT_EXCEEDING_LIMIT);
 
-    console.log("[Stage 23 스모크 — 한도초과 케이스 실제 응답]\n" + result);
+    console.log("[Stage 27 스모크 — 한도초과 케이스 실제 응답]\n" + result);
 
     expect(result.length).toBeGreaterThan(0);
     expect(result).not.toContain("무조건");

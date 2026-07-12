@@ -39,29 +39,33 @@ const SAMPLE_INPUT: ExplainSimulationInput = {
 };
 
 // Stage 21: `/`로 통합된 매매차익 계산기 결과 해설(v2) 입력 샘플.
+// Stage 27: 일반계좌 세율이 22%+250만원 공제에서 15.4% 배당소득세+한계세율로 바뀌면서
+// `/`의 기본 예시(TIGER 미국S&P500, Stage 25)와 같은 시나리오로 값을 다시 계산해 갱신했다.
 const SAMPLE_TRADE_INPUT: ExplainSimulationInput = {
   kind: "trade",
   input: {
-    stockName: "나스닥 100 ETF",
-    currentPriceKrw: 115_000,
-    expectedProfitPerShareKrw: 15_000,
+    stockName: "TIGER 미국S&P500",
+    currentPriceKrw: 20_000,
+    expectedProfitPerShareKrw: 3_000,
     expectedLossPerShareKrw: 0,
-    quantity: 200,
+    quantity: 1_500,
     isaType: "general",
   },
   result: {
-    totalInvestKrw: 23_000_000,
+    totalInvestKrw: 30_000_000,
     annualContributionLimitKrw: 20_000_000,
     isExceedingContributionLimit: true,
-    isaQuantity: 173,
-    generalQuantity: 27,
+    isaQuantity: 1_000,
+    generalQuantity: 500,
     taxFreeLimitKrw: 2_000_000,
-    netGainForIsaKrw: 2_595_000,
-    isaTaxKrw: 58_905,
-    generalForcedTaxKrw: 89_100,
-    generalOnlyTaxKrw: 660_000,
-    totalTaxKrw: 148_005,
-    savedAmountKrw: 511_995,
+    netGainForIsaKrw: 3_000_000,
+    isaTaxKrw: 99_000,
+    isComprehensiveTaxationTriggered: false,
+    marginalTaxRateApplied: 0.154,
+    generalForcedTaxKrw: 231_000,
+    generalOnlyTaxKrw: 693_000,
+    totalTaxKrw: 330_000,
+    savedAmountKrw: 363_000,
   },
   verificationStatus:
     "일부 세부 사항은 아직 확정되지 않았으니 투자 결정 전 최신 공지를 확인하시기 바랍니다.",
@@ -88,7 +92,7 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
     expect(JSON.parse(params.messages[0].content)).toEqual(SAMPLE_INPUT);
   });
 
-  it("kind가 trade면 EXPLAIN_SYSTEM_PROMPT_TRADE(v3)로, hold면 EXPLAIN_SYSTEM_PROMPT_HOLD(v1)로 호출한다", async () => {
+  it("kind가 trade면 EXPLAIN_SYSTEM_PROMPT_TRADE(v6)로, hold면 EXPLAIN_SYSTEM_PROMPT_HOLD(v2)로 호출한다", async () => {
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
     });
@@ -153,6 +157,30 @@ describe("explainSimulationResult (Anthropic API 목 처리)", () => {
   it("Stage 23: EXPLAIN_SYSTEM_PROMPT_TRADE에 taxFreeLimitKrw/annualContributionLimitKrw 혼동을 금지하는 규칙이 포함된다", () => {
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("taxFreeLimitKrw");
     expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("annualContributionLimitKrw");
+  });
+
+  it("Stage 27: trade payload에 isComprehensiveTaxationTriggered/marginalTaxRateApplied가 포함되고 15.4%/한계세율 기준 설명이 붙는다", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "이 조건에서는 ISA 계좌가 세금이 더 적어요." }],
+    });
+
+    await explainSimulationResult(SAMPLE_TRADE_INPUT);
+
+    const sentPayload = JSON.parse(mockCreate.mock.calls[0][0].messages[0].content);
+
+    expect(sentPayload.result.isComprehensiveTaxationTriggered).toBe(false);
+    expect(sentPayload.result.marginalTaxRateApplied).toBeCloseTo(0.154, 6);
+    expect(sentPayload.fieldDescriptions.isComprehensiveTaxationTriggered).toContain(
+      "금융소득종합과세"
+    );
+    expect(sentPayload.fieldDescriptions.marginalTaxRateApplied).toContain("한계세율");
+  });
+
+  it("Stage 27: EXPLAIN_SYSTEM_PROMPT_TRADE가 15.4% 배당소득세를 명시하고 22% 양도소득세는 이 서비스의 계산 대상이 아니라고 안내한다", () => {
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("15.4%");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("국내상장 해외ETF");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("22% 양도소득세");
+    expect(EXPLAIN_SYSTEM_PROMPT_TRADE).toContain("이 서비스의 계산 대상이 아니므로");
   });
 
   it("텍스트 블록이 없으면 에러를 던진다", async () => {

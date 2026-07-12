@@ -59,10 +59,13 @@ const SAMPLE_TRADE_SIMULATION: ChatCurrentSimulation = {
     generalQuantity: 0,
     taxFreeLimitKrw: 2_000_000,
     isaTaxKrw: 792_000,
+    // Stage 27: 일반계좌 세율이 22%+250만원 공제에서 15.4% 배당소득세로 바뀌면서 값이 갱신됨.
+    isComprehensiveTaxationTriggered: false,
+    marginalTaxRateApplied: 0.154,
     generalForcedTaxKrw: 0,
-    generalOnlyTaxKrw: 1_650_000,
+    generalOnlyTaxKrw: 1_540_000,
     totalTaxKrw: 792_000,
-    savedAmountKrw: 858_000,
+    savedAmountKrw: 748_000,
   },
 };
 
@@ -153,7 +156,7 @@ describe("buildCurrentSimulationContext", () => {
     const context = buildCurrentSimulationContext(SAMPLE_TRADE_SIMULATION);
     expect(context).toContain("나스닥 100 ETF");
     expect(context).toContain("200주");
-    expect(context).toContain("858,000원");
+    expect(context).toContain("748,000원");
     expect(context).toContain("ISA 3년 의무유지");
   });
 
@@ -298,7 +301,7 @@ describe("chatWithTaxAssistant (Anthropic API 목 처리)", () => {
 
     const [params] = mockCreate.mock.calls[0];
     expect(params.system).toContain("[현재 시뮬레이션 조건 — 매매차익 계산기]");
-    expect(params.system).toContain("858,000원");
+    expect(params.system).toContain("748,000원");
   });
 
   it("currentSimulation이 kind: dividend면 배당금 컨텍스트를 시스템 프롬프트에 추가한다", async () => {
